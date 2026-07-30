@@ -5,7 +5,11 @@ Desenvolvimento Web** — 2026.2.
 
 ## Integrantes
 
-_A definir apos o sorteio na Aula 01._
+- Pedro Renan Rodrigues da Silva
+- João Paulo Coutinho Knoff
+- Bruno Pinheiro
+- Filipe Gabriel Freires do Nascimento
+- Cauã Gonçalves Dias
 
 ## Fluxo de trabalho
 
