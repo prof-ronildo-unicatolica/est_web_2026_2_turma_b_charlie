@@ -9,7 +9,9 @@ from app.api.v1.sobre import router as sobre_router
 from app.core.config import settings
 from app.core.database import get_mongo_db
 from app.core.seed_mongo import seed_mongo_users
+from app.api.v1.cidades import router as cidades_router
 
+app.include_router(cidades_router)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
