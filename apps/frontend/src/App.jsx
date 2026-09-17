@@ -6,6 +6,7 @@ import ImageAndCarousel from './components/ImageAndCarousel'
 import Sidebar from './components/Sidebar'
 import VideoComponent from './components/VideoComponent'
 import InteractiveExamples from './components/InteractiveExamples'
+import HoteisRaw from './components/HoteisRaw'
 
 export default function App() {
   const [data, setData] = useState(null)
@@ -50,6 +51,9 @@ export default function App() {
               <li className="nav-item">
                 <a className="nav-link" href="#tutorial-components">Tutorial</a>
               </li>
+              <li className="nav-item">
+                <a className="nav-link" href="#hoteis-raw">Hotéis (Raw)</a> 
+             </li>
             </ul>
             <div className="d-flex align-items-center gap-2">
               <button className="btn btn-outline-primary btn-sm px-3" type="button">
@@ -130,6 +134,7 @@ export default function App() {
               <ImageAndCarousel />
               <VideoComponent />
               <InteractiveExamples />
+              <HoteisRaw />
             </div>
           </div>
         )}
