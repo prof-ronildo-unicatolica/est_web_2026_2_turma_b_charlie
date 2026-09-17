@@ -59,6 +59,8 @@ services:
       context: ./apps/services/core-service
       dockerfile: Dockerfile
     container_name: hotel-core-service
+    volumes:
+      - ./apps/services/core-service:/app
     restart: unless-stopped
     environment:
       - POSTGRES_SERVER=postgres
