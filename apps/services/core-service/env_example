@@ -11,3 +11,8 @@ POSTGRES_PORT=5432
 # MongoDB Config
 MONGODB_URL=mongodb://admin:admin123@localhost:27017
 MONGODB_DB=hotel_mongo_dev
+
+# Autenticacao JWT
+SECRET_KEY="sua_chave_secreta_super_segura_de_no_minimo_32_bytes_deve_vir_do_env"
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
