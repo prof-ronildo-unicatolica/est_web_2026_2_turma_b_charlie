@@ -26,5 +26,10 @@ class Settings(BaseSettings):
     # Configurações do RabbitMQ
     RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
 
+    # Configurações de autenticação de jwt
+    SECRET_KEY: str = "sua_chave_secreta_super_segura_de_no_minimo_32_bytes_deve_vir_do_env"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+
 
 settings = Settings()
