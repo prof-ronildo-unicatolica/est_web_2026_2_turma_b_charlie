@@ -8,7 +8,7 @@ from alembic import context
 from app.core.config import settings
 from app.models.tutorial import Base
 from app.models import hotel      # noqa: F401  -- registra Cidade e Hotel na Base.metadata
-
+from app.models import usuario    # noqa: F401  -- registra Usuario na Base.metadata
 # Objeto de configuração do Alembic
 config = context.config
 
