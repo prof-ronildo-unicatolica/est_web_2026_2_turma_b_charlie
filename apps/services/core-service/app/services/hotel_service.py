@@ -12,7 +12,6 @@ from app.repositories.hotel_repository import (
 
 
 
-
 class RegraDeNegocioError(Exception):
     """Base para erros de negócio do domínio."""
 
@@ -36,6 +35,9 @@ class ComodidadeJaExisteError(RegraDeNegocioError):
 class ComodidadeNaoEncontradaError(RegraDeNegocioError):
     pass
 
+
+class ComodidadeEmUsoError(RegraDeNegocioError):
+    pass
 
 
 
@@ -71,7 +73,6 @@ class ComodidadeService:
     def remover(self, comodidade_id: uuid.UUID) -> None:
         comodidade = self.buscar_por_id(comodidade_id)
         self.repo.delete(comodidade)
-
 
 
 
@@ -112,7 +113,6 @@ class CidadeService:
     def remover(self, cidade_id: uuid.UUID) -> None:
         cidade = self.buscar_por_id(cidade_id)
         self.repository.delete(cidade)
-
 
 
 
