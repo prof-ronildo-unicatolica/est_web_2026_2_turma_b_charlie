@@ -1,4 +1,4 @@
-# apps/services/core-service/app/services/hotel_service.py
+
 import uuid
 from typing import List, Optional
 
@@ -77,7 +77,7 @@ class CidadeService:
     def __init__(self, db: Session):
         self.repository = CidadeRepository(db)
 
-    def criar(self, nome: str, limite_territorial: dict | None = None) -> Cidade:
+    def criar(self, nome: str, limite_territorial: Optional[dict] = None) -> Cidade:
         nome = nome.strip()
         if self.repository.get_by_nome(nome):
             raise CidadeJaExisteError(f"Já existe uma cidade chamada '{nome}'.")
@@ -101,7 +101,7 @@ class CidadeService:
             if existente and existente.id != cidade_id:
                 raise CidadeJaExisteError(f"Já existe uma cidade chamada '{novo_nome}'.")
             dados["nome"] = novo_nome
-       
+        # Mantém 'limite_territorial' mesmo se None (permite limpar o campo)
         dados_filtrados = {
             k: v for k, v in dados.items()
             if v is not None or k == "limite_territorial"
@@ -113,6 +113,7 @@ class CidadeService:
         self.repository.delete(cidade)
 
 
+# ─── HotelService (EVOLUÍDO) ─────────────────────────────────────────────────
 
 class HotelService:
     def __init__(self, db: Session):
@@ -124,7 +125,7 @@ class HotelService:
         self,
         nome: str,
         cidade_id: uuid.UUID,
-        categoria_estrelas: int | None = None,
+        categoria_estrelas: Optional[int] = None,
     ) -> Hotel:
         nome = nome.strip()
         if not self.cidades.get_by_id(cidade_id):
@@ -135,7 +136,7 @@ class HotelService:
             categoria_estrelas=categoria_estrelas,
         )
 
-    def listar(self, cidade_id: uuid.UUID | None = None) -> List[Hotel]:
+    def listar(self, cidade_id: Optional[uuid.UUID] = None) -> List[Hotel]:
         if cidade_id is not None:
             if not self.cidades.get_by_id(cidade_id):
                 raise CidadeNaoEncontradaError(f"Não existe cidade com id '{cidade_id}'.")
