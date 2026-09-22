@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Table
+from sqlalchemy import JSON, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,7 +45,9 @@ class Cidade(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     nome: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    limite_territorial: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    limite_territorial: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
 
     hoteis: Mapped[List["Hotel"]] = relationship(
         back_populates="cidade", cascade="all, delete-orphan"
