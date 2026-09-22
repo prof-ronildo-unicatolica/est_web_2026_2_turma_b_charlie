@@ -1,11 +1,12 @@
 import uuid
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_admin
 from app.core.database import get_db
+from app.models.usuario import Usuario
+from app.schemas.hotel import HotelCreateSchema, HotelResponseSchema, HotelUpdateSchema
 from app.services.hotel_service import (
     CidadeNaoEncontradaError,
     ComodidadeNaoEncontradaError,
@@ -13,46 +14,20 @@ from app.services.hotel_service import (
     HotelService,
 )
 
-router = APIRouter(prefix="/admin/hoteis", tags=["Admin - Hotéis"])
+router = APIRouter(prefix="/admin/hoteis", tags=["Admin — Hoteis"])
 
 
-
-
-class HotelCreateRequest(BaseModel):
-    nome: str = Field(..., min_length=1, max_length=150)
-    cidade_id: uuid.UUID
-    categoria_estrelas: Optional[int] = Field(None, ge=1, le=5)
-
-
-class HotelUpdateRequest(BaseModel):
-    nome: Optional[str] = Field(None, min_length=1, max_length=150)
-    cidade_id: Optional[uuid.UUID] = None
-    categoria_estrelas: Optional[int] = Field(None, ge=1, le=5)
-
-
-class ComodidadeNestedResponse(BaseModel):
-    id: uuid.UUID
-    nome: str
-
-    class Config:
-        from_attributes = True
-
-
-class HotelResponse(BaseModel):
-    id: uuid.UUID
-    nome: str
-    cidade_id: uuid.UUID
-    categoria_estrelas: Optional[int] = None
-    comodidades: List[ComodidadeNestedResponse] = []
-
-    class Config:
-        from_attributes = True
-
-
-
-
-@router.post("", response_model=HotelResponse, status_code=status.HTTP_201_CREATED)
-def criar_hotel(payload: HotelCreateRequest, db: Session = Depends(get_db)):
+@router.post(
+    "",
+    response_model=HotelResponseSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="[ADMIN] Cria um hotel vinculado a uma cidade",
+)
+def criar_hotel(
+    payload: HotelCreateSchema,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
+):
     service = HotelService(db)
     try:
         return service.criar(
@@ -61,48 +36,39 @@ def criar_hotel(payload: HotelCreateRequest, db: Session = Depends(get_db)):
             categoria_estrelas=payload.categoria_estrelas,
         )
     except CidadeNaoEncontradaError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-
-@router.get("", response_model=List[HotelResponse])
-def listar_hoteis(
-    cidade_id: Optional[uuid.UUID] = None,
-    db: Session = Depends(get_db),
-):
-    service = HotelService(db)
-    try:
-        return service.listar(cidade_id=cidade_id)
-    except CidadeNaoEncontradaError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.get("/{hotel_id}", response_model=HotelResponse)
-def buscar_hotel(hotel_id: uuid.UUID, db: Session = Depends(get_db)):
-    service = HotelService(db)
-    try:
-        return service.buscar_por_id(hotel_id)
-    except HotelNaoEncontradoError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-
-@router.put("/{hotel_id}", response_model=HotelResponse)
+@router.put(
+    "/{hotel_id}",
+    response_model=HotelResponseSchema,
+    summary="[ADMIN] Atualiza um hotel existente",
+)
 def atualizar_hotel(
     hotel_id: uuid.UUID,
-    payload: HotelUpdateRequest,
+    payload: HotelUpdateSchema,
     db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
 ):
     service = HotelService(db)
     try:
-        dados = payload.model_dump(exclude_unset=True)
-        return service.atualizar(hotel_id, dados)
+        return service.atualizar(hotel_id, payload.model_dump(exclude_none=True))
     except HotelNaoEncontradoError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except CidadeNaoEncontradaError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.delete("/{hotel_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remover_hotel(hotel_id: uuid.UUID, db: Session = Depends(get_db)):
+@router.delete(
+    "/{hotel_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="[ADMIN] Remove um hotel",
+)
+def remover_hotel(
+    hotel_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
+):
     service = HotelService(db)
     try:
         service.remover(hotel_id)
@@ -110,11 +76,16 @@ def remover_hotel(hotel_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.post("/{hotel_id}/comodidades/{comodidade_id}", response_model=HotelResponse)
+@router.post(
+    "/{hotel_id}/comodidades/{comodidade_id}",
+    response_model=HotelResponseSchema,
+    summary="[ADMIN] Associa uma comodidade a um hotel",
+)
 def adicionar_comodidade(
     hotel_id: uuid.UUID,
     comodidade_id: uuid.UUID,
     db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
 ):
     service = HotelService(db)
     try:
@@ -123,14 +94,19 @@ def adicionar_comodidade(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.delete("/{hotel_id}/comodidades/{comodidade_id}", response_model=HotelResponse)
-def remover_comodidade(
+@router.delete(
+    "/{hotel_id}/comodidades/{comodidade_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="[ADMIN] Remove a associacao de uma comodidade ao hotel",
+)
+def remover_comodidade_do_hotel(
     hotel_id: uuid.UUID,
     comodidade_id: uuid.UUID,
     db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
 ):
     service = HotelService(db)
     try:
-        return service.remover_comodidade(hotel_id, comodidade_id)
+        service.remover_comodidade(hotel_id, comodidade_id)
     except (HotelNaoEncontradoError, ComodidadeNaoEncontradaError) as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

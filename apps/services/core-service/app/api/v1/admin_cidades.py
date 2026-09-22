@@ -1,45 +1,32 @@
 import uuid
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_admin
 from app.core.database import get_db
+from app.models.usuario import Usuario
+from app.schemas.hotel import CidadeCreateSchema, CidadeResponseSchema, CidadeUpdateSchema
 from app.services.hotel_service import (
     CidadeJaExisteError,
     CidadeNaoEncontradaError,
     CidadeService,
 )
 
-router = APIRouter(prefix="/admin/cidades", tags=["Admin - Cidades"])
+router = APIRouter(prefix="/admin/cidades", tags=["Admin — Cidades"])
 
 
-
-
-class CidadeCreateRequest(BaseModel):
-    nome: str = Field(..., min_length=1, max_length=100)
-    limite_territorial: Optional[dict] = None
-
-
-class CidadeUpdateRequest(BaseModel):
-    nome: Optional[str] = Field(None, min_length=1, max_length=100)
-    limite_territorial: Optional[dict] = None
-
-
-class CidadeResponse(BaseModel):
-    id: uuid.UUID
-    nome: str
-    limite_territorial: Optional[dict] = None
-
-    class Config:
-        from_attributes = True
-
-
-
-
-@router.post("", response_model=CidadeResponse, status_code=status.HTTP_201_CREATED)
-def criar_cidade(payload: CidadeCreateRequest, db: Session = Depends(get_db)):
+@router.post(
+    "",
+    response_model=CidadeResponseSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="[ADMIN] Cria uma nova cidade",
+)
+def criar_cidade(
+    payload: CidadeCreateSchema,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
+):
     service = CidadeService(db)
     try:
         return service.criar(
@@ -47,42 +34,39 @@ def criar_cidade(payload: CidadeCreateRequest, db: Session = Depends(get_db)):
             limite_territorial=payload.limite_territorial,
         )
     except CidadeJaExisteError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.get("", response_model=List[CidadeResponse])
-def listar_cidades(db: Session = Depends(get_db)):
-    service = CidadeService(db)
-    return service.listar()
-
-
-@router.get("/{cidade_id}", response_model=CidadeResponse)
-def buscar_cidade(cidade_id: uuid.UUID, db: Session = Depends(get_db)):
-    service = CidadeService(db)
-    try:
-        return service.buscar_por_id(cidade_id)
-    except CidadeNaoEncontradaError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-
-@router.put("/{cidade_id}", response_model=CidadeResponse)
+@router.put(
+    "/{cidade_id}",
+    response_model=CidadeResponseSchema,
+    summary="[ADMIN] Atualiza uma cidade existente",
+)
 def atualizar_cidade(
     cidade_id: uuid.UUID,
-    payload: CidadeUpdateRequest,
+    payload: CidadeUpdateSchema,
     db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
 ):
     service = CidadeService(db)
     try:
-        dados = payload.model_dump(exclude_unset=True)
-        return service.atualizar(cidade_id, dados)
+        return service.atualizar(cidade_id, payload.model_dump(exclude_none=True))
     except CidadeNaoEncontradaError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except CidadeJaExisteError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.delete("/{cidade_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remover_cidade(cidade_id: uuid.UUID, db: Session = Depends(get_db)):
+@router.delete(
+    "/{cidade_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="[ADMIN] Remove uma cidade (cascade nos hoteis vinculados)",
+)
+def remover_cidade(
+    cidade_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(get_current_admin),
+):
     service = CidadeService(db)
     try:
         service.remover(cidade_id)
