@@ -309,7 +309,7 @@ class QuartoService:
         hotel_id = quarto.hotel_id
         self.repo.delete(quarto)
 
-        # Sincronização CQRS com MongoDB
+    
         if self.mongo_service:
             await self.mongo_service.sincronizar_hotel(hotel_id)
 ```

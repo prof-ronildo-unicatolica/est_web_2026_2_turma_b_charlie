@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.hotel import Cidade, Comodidade, Hotel, Quarto
 
 
- ─── Repository: Comodidade ──────────────────────────────────────────────────
+
 class ComodidadeRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -38,7 +38,7 @@ class ComodidadeRepository:
         self.db.commit()
 
 
- ─── Repository: Cidade ──────────────────────────────────────────────────────
+
 class CidadeRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -71,7 +71,7 @@ class CidadeRepository:
         self.db.commit()
 
 
- ─── Repository: Hotel ───────────────────────────────────────────────────────
+ 
 class HotelRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -144,7 +144,7 @@ class HotelRepository:
         return self.get_by_id(hotel.id)
 
 
- ─── Repository: Quarto (NOVO — SPRINT 4) ────────────────────────────────────
+ 
 class QuartoRepository:
     def __init__(self, db: Session):
         self.db = db
