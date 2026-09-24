@@ -51,6 +51,45 @@ class CidadeResponseSchema(BaseModel):
     limite_territorial: Optional[Dict[str, Any]] = None
 
 
+
+# quarto
+
+class QuartoCreateSchema(BaseModel):
+    numero: str = Field(min_length=1, max_length=20, examples=["101"])
+    tipo: str = Field(min_length=2, max_length=50, examples=["Casal Luxo", "Standard", "Família"])
+    preco_diaria: float = Field(gt=0, examples=[250.0])
+    max_adultos: int = Field(ge=1, le=10, default=2, examples=[2])
+    max_criancas: int = Field(ge=0, le=10, default=0, examples=[1])
+    descricao: Optional[str] = Field(default=None, max_length=500)
+    hotel_id: uuid.UUID
+    ativo: bool = True
+
+
+class QuartoUpdateSchema(BaseModel):
+    numero: Optional[str] = Field(default=None, min_length=1, max_length=20)
+    tipo: Optional[str] = Field(default=None, min_length=2, max_length=50)
+    preco_diaria: Optional[float] = Field(default=None, gt=0)
+    max_adultos: Optional[int] = Field(default=None, ge=1, le=10)
+    max_criancas: Optional[int] = Field(default=None, ge=0, le=10)
+    descricao: Optional[str] = Field(default=None, max_length=500)
+    ativo: Optional[bool] = None
+
+
+class QuartoResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    numero: str
+    tipo: str
+    preco_diaria: float
+    max_adultos: int
+    max_criancas: int
+    descricao: Optional[str] = None
+    ativo: bool
+    hotel_id: uuid.UUID
+
+
+
 # hotel
 
 class HotelCreateSchema(BaseModel):
@@ -85,3 +124,28 @@ class HotelResponseSchema(BaseModel):
 class CidadeComHoteisSchema(CidadeResponseSchema):
     """ Schema opcional para listagem de cidade com seus hotéis """
     hoteis: List[HotelResponseSchema] = []
+
+
+class HotelDetalhesResponseSchema(HotelResponseSchema):
+    quartos: List[QuartoResponseSchema] = []
+
+
+
+class CatalogoHotelItemSchema(BaseModel):
+    hotel_id: str
+    nome: str
+    categoria_estrelas: Optional[int] = None
+    cidade_nome: str
+    cidade_id: str
+    comodidades: List[str] = []
+    preco_minimo: float
+    capacidade_maxima_adultos: int
+    capacidade_maxima_criancas: int
+    total_quartos_ativos: int
+    quartos_disponiveis: List[Dict[str, Any]] = []
+
+
+class BuscaCatalogoResponseSchema(BaseModel):
+    total: int
+    filtros_aplicados: Dict[str, Any]
+    hoteis: List[CatalogoHotelItemSchema]
