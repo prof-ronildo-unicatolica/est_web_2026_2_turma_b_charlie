@@ -312,4 +312,3 @@ class QuartoService:
     
         if self.mongo_service:
             await self.mongo_service.sincronizar_hotel(hotel_id)
-```
