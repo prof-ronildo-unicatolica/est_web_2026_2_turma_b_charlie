@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from typing import List, Optional
 
 from sqlalchemy.orm import Session, joinedload
@@ -206,4 +206,3 @@ class QuartoRepository:
     def delete(self, quarto: Quarto) -> None:
         self.db.delete(quarto)
         self.db.commit()
-```
