@@ -1,7 +1,8 @@
 import uuid
+from datetime import date 
 from typing import List, Optional
 
-from sqlalchemy import Boolean, JSON, Column, ForeignKey, Integer, String, Table, Float, Text
+from sqlalchemy import Boolean, JSON, Column, ForeignKey, Integer, String, Table, Float, Text, Date
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -60,7 +61,6 @@ class Hotel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     nome: Mapped[str] = mapped_column(String(100), nullable=False)
-
     categoria_estrelas: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     cidade_id: Mapped[uuid.UUID] = mapped_column(
@@ -74,6 +74,13 @@ class Hotel(Base):
     )
 
     quartos: Mapped[List["Quarto"]] = relationship(
+        back_populates="hotel", cascade="all, delete-orphan"
+    )
+
+    tarifas_temporada: Mapped[List["TarifaTemporada"]] = relationship(
+        back_populates="hotel", cascade="all, delete-orphan"
+    )
+    servicos_adicionais: Mapped[List["ServicoAdicional"]] = relationship(
         back_populates="hotel", cascade="all, delete-orphan"
     )
 
@@ -96,3 +103,35 @@ class Quarto(Base):
         ForeignKey("hoteis.id", ondelete="CASCADE"), nullable=False
     )
     hotel: Mapped["Hotel"] = relationship(back_populates="quartos")
+
+
+class TarifaTemporada(Base):
+    __tablename__ = "tarifas_temporada"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)  
+    data_inicio: Mapped[date] = mapped_column(Date, nullable=False)
+    data_fim: Mapped[date] = mapped_column(Date, nullable=False)
+    multiplicador: Mapped[float] = mapped_column(Float, nullable=False)  
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    hotel_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("hoteis.id", ondelete="CASCADE"), nullable=False
+    )
+    hotel: Mapped["Hotel"] = relationship(back_populates="tarifas_temporada")
+
+
+class ServicoAdicional(Base):
+    __tablename__ = "servicos_adicionais"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)  
+    descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    preco: Mapped[float] = mapped_column(Float, nullable=False)
+    por_diaria: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)  
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    hotel_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("hoteis.id", ondelete="CASCADE"), nullable=False
+    )
+    hotel: Mapped["Hotel"] = relationship(back_populates="servicos_adicionais")

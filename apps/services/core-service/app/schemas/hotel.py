@@ -120,7 +120,6 @@ class HotelResponseSchema(BaseModel):
     comodidades: List[ComodidadeResponseSchema] = []
 
 
-
 class CidadeComHoteisSchema(CidadeResponseSchema):
     """ Schema opcional para listagem de cidade com seus hotéis """
     hoteis: List[HotelResponseSchema] = []
