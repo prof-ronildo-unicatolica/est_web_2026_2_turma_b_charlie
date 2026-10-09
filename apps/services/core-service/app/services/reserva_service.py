@@ -138,7 +138,7 @@ class ReservaService:
 
             for t in tarifas:
                 if t.data_inicio <= data_atual <= t.data_fim:
-                    if t.multiplicador > multiplicador:
+                    if tarifa_nome is None or t.multiplicador > multiplicador:
                         multiplicador = float(t.multiplicador)
                         tarifa_nome = t.nome
 
@@ -175,6 +175,16 @@ class ReservaService:
         total_servicos = 0.0
         if req.servicos_adicionais_ids:
             servicos_db = self.servico_repo.list_by_ids(req.servicos_adicionais_ids)
+            ids_solicitados = set(req.servicos_adicionais_ids)
+            ids_validos = {
+                s.id for s in servicos_db
+                if s.hotel_id == quarto.hotel_id
+            }
+            if ids_solicitados != ids_validos:
+                raise RecursoNaoEncontradoError(
+                    "Um ou mais serviços não existem, estão inativos "
+                    "ou não pertencem ao hotel do quarto."
+                )
             for s in servicos_db:
                 dias = num_diarias if s.por_diaria else 1
                 custo_servico = round(float(s.preco) * dias, 2)
