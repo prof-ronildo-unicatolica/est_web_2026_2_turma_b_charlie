@@ -405,3 +405,72 @@ def test_crud_servico_adicional(cenario):
 
     with pytest.raises(RecursoNaoEncontradoError):
         service.obter_servico_adicional(adicional_id)
+
+@pytest.mark.parametrize(
+    "preco,taxa,total",
+    [
+        (8.95, 2.69, 14.33),
+        (8.85, 2.66, 14.17),
+    ],
+)
+def test_arredondamento_decimal_early_e_late(cenario, preco, taxa, total):
+    service, quarto = cenario
+    quarto.preco_diaria = preco
+    service.db.commit()
+
+    resultado = service.calcular_cotacao(
+        pedido(
+            quarto,
+            checkout=date(2026, 10, 2),
+            early_checkin=True,
+            late_checkout=True,
+        )
+    )
+
+    assert resultado.taxa_early_checkin == taxa
+    assert resultado.taxa_late_checkout == taxa
+    assert resultado.valor_total == total
+
+
+def test_arredondamento_decimal_crianca(cenario):
+    service, quarto = cenario
+    quarto.preco_diaria = 19.99
+    service.db.commit()
+
+    resultado = service.calcular_cotacao(
+        pedido(quarto, checkout=date(2026, 10, 2), criancas=1)
+    )
+
+    assert resultado.adicional_criancas == 10.0
+    assert resultado.valor_total == 29.99
+
+
+def test_arredondamento_decimal_desconto(cenario):
+    service, quarto = cenario
+    quarto.preco_diaria = 10.05
+    service.db.commit()
+
+    resultado = service.calcular_cotacao(
+        pedido(
+            quarto,
+            checkout=date(2026, 10, 2),
+            tipo_tarifa="nao_reembolsavel",
+        )
+    )
+
+    assert resultado.desconto_nao_reembolsavel == 1.01
+    assert resultado.valor_total == 9.04
+
+
+def test_arredondamento_decimal_temporada(cenario):
+    service, quarto = cenario
+    quarto.preco_diaria = 1.07
+    service.db.commit()
+    criar_tarifa(service, quarto, multiplicador=2.5)
+
+    resultado = service.calcular_cotacao(
+        pedido(quarto, checkout=date(2026, 10, 2))
+    )
+
+    assert resultado.diarias[0].valor_final == 2.68
+    assert resultado.valor_total == 2.68
