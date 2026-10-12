@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { hotelService } from '../services/catalogo'
 
 export default function HotelDetalhesPage() {
+  const navigate = useNavigate()
   const { id } = useParams()
   const [hotel, setHotel] = useState(null)
   const [carregando, setCarregando] = useState(true)
@@ -140,9 +141,9 @@ export default function HotelDetalhesPage() {
                   </div>
                   <button
                     className="btn btn-primary px-3"
-                    onClick={() => alert(`Quarto ${quarto.tipo} (#${quarto.numero}) selecionado! O fluxo de reserva assíncrona será conectado nas próximas Sprints.`)}
+                    onClick={() => navigate(`/checkout?hotel_id=${hotel.id}&quarto_id=${quarto.id}`)}
                   >
-                    Selecionar
+                    Reservar
                   </button>
                 </div>
               </div>

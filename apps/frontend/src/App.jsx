@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
-
+import CheckoutPage from './pages/CheckoutPage'
 import AdminRoute from './components/AdminRoute'
 import HoteisRaw from './components/HoteisRaw'
 import LoginPage from './pages/LoginPage'
@@ -107,6 +107,7 @@ export default function App() {
             <Route path="/hoteis/:id" element={<HotelDetalhesPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
 
             {/* rotas admin */}
             <Route
