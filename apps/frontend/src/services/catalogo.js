@@ -56,3 +56,24 @@ export const buscaService = {
   },
   reconstruirCatalogoMongo: () => api.post('/admin/catalogo/rebuild').then(r => r.data),
 }
+
+
+export const cotacaoService = {
+  calcular: (payload) => api.post('/cotacao', payload).then(r => r.data),
+}
+
+export const servicoAdicionalService = {
+  listarPorHotel: (hotelId) =>
+    api.get('/servicos-adicionais', { params: { hotel_id: hotelId } }).then(r => r.data),
+  criar: (payload) => api.post('/admin/servicos-adicionais', payload).then(r => r.data),
+  atualizar: (id, payload) => api.put(`/admin/servicos-adicionais/${id}`, payload).then(r => r.data),
+  remover: (id) => api.delete(`/admin/servicos-adicionais/${id}`),
+}
+
+export const tarifaTemporadaService = {
+  listarPorHotel: (hotelId) =>
+    api.get('/admin/tarifas-temporada', { params: { hotel_id: hotelId } }).then(r => r.data),
+  criar: (payload) => api.post('/admin/tarifas-temporada', payload).then(r => r.data),
+  atualizar: (id, payload) => api.put(`/admin/tarifas-temporada/${id}`, payload).then(r => r.data),
+  remover: (id) => api.delete(`/admin/tarifas-temporada/${id}`),
+}
