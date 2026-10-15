@@ -140,6 +140,7 @@ export default function HotelDetalhesPage() {
                     </strong>
                   </div>
                   <button
+                    type="button"
                     className="btn btn-primary px-3"
                     onClick={() => navigate(`/checkout?hotel_id=${hotel.id}&quarto_id=${quarto.id}`)}
                   >

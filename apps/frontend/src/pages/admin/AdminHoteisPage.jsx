@@ -30,7 +30,7 @@ export default function AdminHoteisPage() {
     const payload = {
       nome: form.nome,
       cidade_id: form.cidade_id,
-      categoria_estrelas: form.categoria_estrelas ? parseInt(form.categoria_estrelas) : null,
+      categoria_estrelas: form.categoria_estrelas ? Number.parseInt(form.categoria_estrelas,10) : null,
     }
     try {
       if (editando) {
@@ -144,8 +144,8 @@ export default function AdminHoteisPage() {
                   ))}
               </td>
               <td>
-                <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(hotel)}>Editar</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleRemover(hotel.id)}>Remover</button>
+                <button type="button" className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(hotel)}>Editar</button>
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleRemover(hotel.id)}>Remover</button>
               </td>
             </tr>
           ))}

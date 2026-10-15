@@ -107,10 +107,10 @@ export default function AdminCidadesPage() {
                   : <span className="badge bg-secondary">Não definido</span>}
               </td>
               <td>
-                <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(cidade)}>
+                <button type="button" className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(cidade)}>
                   Editar
                 </button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleRemover(cidade.id)}>
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleRemover(cidade.id)}>
                   Remover
                 </button>
               </td>
