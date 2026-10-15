@@ -38,8 +38,9 @@ export default function RegisterPage() {
         {sucesso && <div className="alert alert-success">{sucesso}</div>}
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
-            <label className="form-label">Nome Completo</label>
+            <label htmlFor="register-nome" className="form-label">Nome Completo</label>
             <input
+              id="register-nome"
               type="text"
               className="form-control"
               value={nome}
@@ -50,8 +51,9 @@ export default function RegisterPage() {
             />
           </div>
           <div className="mb-3">
-            <label className="form-label">E-mail</label>
+            <label htmlFor="register-email" className="form-label">E-mail</label>
             <input
+              id="register-email"
               type="email"
               className="form-control"
               value={email}
@@ -60,8 +62,9 @@ export default function RegisterPage() {
             />
           </div>
           <div className="mb-3">
-            <label className="form-label">Senha</label>
+            <label htmlFor="register-senha" className="form-label">Senha</label>
             <input
+              id="register-senha"
               type="password"
               className="form-control"
               value={senha}

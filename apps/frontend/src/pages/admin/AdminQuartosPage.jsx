@@ -73,9 +73,9 @@ export default function AdminQuartosPage() {
       hotel_id: form.hotel_id || hotelSelecionado,
       numero: form.numero.trim(),
       tipo: form.tipo.trim(),
-      preco_diaria: parseFloat(form.preco_diaria),
-      max_adultos: parseInt(form.max_adultos),
-      max_criancas: parseInt(form.max_criancas),
+      preco_diaria: Number.parseFloat(form.preco_diaria),
+      max_adultos: Number.parseInt(form.max_adultos,10),
+      max_criancas: Number.parseInt(form.max_criancas,10),
       descricao: form.descricao.trim() || null,
       ativo: form.ativo,
     }
@@ -149,7 +149,7 @@ export default function AdminQuartosPage() {
     <div className="container py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Gerenciamento de Quartos (CQRS)</h2>
-        <button className="btn btn-outline-secondary btn-sm" onClick={handleRebuildMongo} disabled={carregando}>
+        <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleRebuildMongo} disabled={carregando}>
           🔄 Sincronizar Tudo com MongoDB
         </button>
       </div>
@@ -164,8 +164,9 @@ export default function AdminQuartosPage() {
         <form onSubmit={handleSubmit}>
           <div className="row g-3">
             <div className="col-md-4">
-              <label className="form-label small fw-bold">Hotel</label>
+              <label htmlFor="quarto-hotel" className="form-label small fw-bold">Hotel</label>
               <select
+                id="quarto-hotel"
                 className="form-select"
                 name="hotel_id"
                 value={form.hotel_id || hotelSelecionado}
@@ -182,8 +183,9 @@ export default function AdminQuartosPage() {
             </div>
 
             <div className="col-md-2">
-              <label className="form-label small fw-bold">Número</label>
+              <label htmlFor="quarto-numero" className="form-label small fw-bold">Número</label>
               <input
+                id="quarto-numero"
                 className="form-control"
                 placeholder="Ex: 101"
                 name="numero"
@@ -195,8 +197,9 @@ export default function AdminQuartosPage() {
             </div>
 
             <div className="col-md-3">
-              <label className="form-label small fw-bold">Tipo de Quarto</label>
+              <label htmlFor="quarto-tipo" className="form-label small fw-bold">Tipo de Quarto</label>
               <input
+                id="quarto-tipo"
                 className="form-control"
                 placeholder="Ex: Casal Luxo, Família..."
                 name="tipo"
@@ -209,8 +212,9 @@ export default function AdminQuartosPage() {
             </div>
 
             <div className="col-md-3">
-              <label className="form-label small fw-bold">Preço Diária (R$)</label>
+              <label htmlFor="quarto-preco" className="form-label small fw-bold">Preço Diária (R$)</label>
               <input
+                id="quarto-preco"
                 type="number"
                 step="0.01"
                 min="1"
@@ -224,8 +228,9 @@ export default function AdminQuartosPage() {
             </div>
 
             <div className="col-md-3">
-              <label className="form-label small fw-bold">Máx. Adultos</label>
+              <label htmlFor="quarto-max-adultos" className="form-label small fw-bold">Máx. Adultos</label>
               <input
+                id="quarto-max-adultos"
                 type="number"
                 min="1"
                 max="10"
@@ -238,8 +243,9 @@ export default function AdminQuartosPage() {
             </div>
 
             <div className="col-md-3">
-              <label className="form-label small fw-bold">Máx. Crianças</label>
+              <label htmlFor="quarto-max-criancas" className="form-label small fw-bold">Máx. Crianças</label>
               <input
+                id="quarto-max-criancas"
                 type="number"
                 min="0"
                 max="10"
@@ -252,8 +258,9 @@ export default function AdminQuartosPage() {
             </div>
 
             <div className="col-md-4">
-              <label className="form-label small fw-bold">Descrição</label>
+              <label htmlFor="quarto-descricao" className="form-label small fw-bold">Descrição</label>
               <input
+                id="quarto-descricao"
                 className="form-control"
                 placeholder="Detalhes opcionais..."
                 name="descricao"
@@ -358,10 +365,10 @@ export default function AdminQuartosPage() {
                     )}
                   </td>
                   <td>
-                    <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(q)}>
+                    <button type="button" className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(q)}>
                       Editar
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleRemover(q.id)}>
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => handleRemover(q.id)}>
                       Remover
                     </button>
                   </td>

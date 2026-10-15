@@ -85,8 +85,9 @@ export default function BuscaHoteisPage() {
             <form onSubmit={handleBuscar}>
               <div className="row g-2 align-items-end">
                 <div className="col-md-3">
-                  <label className="form-label small fw-bold text-muted">Destino / Cidade</label>
+                  <label htmlFor= "filtro-cidade" className="form-label small fw-bold text-muted">Destino / Cidade</label>
                   <select
+                    id="filtro-cidade"
                     className="form-select"
                     name="cidade"
                     value={filtros.cidade}
@@ -100,8 +101,9 @@ export default function BuscaHoteisPage() {
                 </div>
 
                 <div className="col-md-2 col-6">
-                  <label className="form-label small fw-bold text-muted">Adultos</label>
+                  <label htmlFor="filtro-adultos" className="form-label small fw-bold text-muted">Adultos</label>
                   <input
+                    id="filtro-adultos"
                     type="number"
                     min="1"
                     max="10"
@@ -113,8 +115,9 @@ export default function BuscaHoteisPage() {
                 </div>
 
                 <div className="col-md-2 col-6">
-                  <label className="form-label small fw-bold text-muted">Crianças</label>
+                  <label htmlFor="filtro-criancas" className="form-label small fw-bold text-muted">Crianças</label>
                   <input
+                    id="filtro-criancas"
                     type="number"
                     min="0"
                     max="10"
@@ -126,8 +129,9 @@ export default function BuscaHoteisPage() {
                 </div>
 
                 <div className="col-md-2">
-                  <label className="form-label small fw-bold text-muted">Estrelas Mínimas</label>
+                  <label htmlFor="filtro-estrelas" className="form-label small fw-bold text-muted">Estrelas Mínimas</label>
                   <select
+                    id="filtro-estrelas"
                     className="form-select"
                     name="estrelas"
                     value={filtros.estrelas}
@@ -178,7 +182,7 @@ export default function BuscaHoteisPage() {
             <h4 className="text-secondary">Nenhum hotel atende aos filtros selecionados.</h4>
             <p className="text-muted">Experimente ajustar o destino ou reduzir os requisitos de hóspedes.</p>
             <div>
-              <button className="btn btn-primary btn-sm" onClick={handleLimparFiltros}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={handleLimparFiltros}>
                 Ver Todos os Hotéis
               </button>
             </div>

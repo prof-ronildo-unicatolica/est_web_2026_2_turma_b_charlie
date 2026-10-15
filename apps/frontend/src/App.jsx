@@ -51,6 +51,7 @@ function Navbar() {
             {user?.is_admin && (
               <div className="dropdown me-2">
                 <button
+                  type="button"
                   className="btn btn-outline-light btn-sm dropdown-toggle"
                   data-bs-toggle="dropdown"
                 >
