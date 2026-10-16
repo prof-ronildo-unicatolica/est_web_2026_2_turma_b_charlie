@@ -474,3 +474,58 @@ def test_arredondamento_decimal_temporada(cenario):
 
     assert resultado.diarias[0].valor_final == 2.68
     assert resultado.valor_total == 2.68
+
+
+def test_criar_tarifa_temporada_datas_invalidas_lanca_erro(db_session, setup_cenario):
+    service = ReservaService(db_session)
+    hotel = setup_cenario["hotel"]
+    
+    payload = TarifaTemporadaCreateSchema(
+        hotel_id=hotel.id,
+        nome="Alta Temporada Inválida",
+        data_inicio=date(2026, 12, 20),
+        data_fim=date(2026, 12, 10),  
+        multiplicador=1.5,
+    )
+    with pytest.raises(DatasInvalidasError):
+        service.criar_tarifa_temporada(payload)
+
+
+def test_crud_servico_adicional_sucesso(db_session, setup_cenario):
+    service = ReservaService(db_session)
+    hotel = setup_cenario["hotel"]
+
+    payload = ServicoAdicionalCreateSchema(
+        hotel_id=hotel.id,
+        nome="Aluguel de Bike",
+        preco=25.0,
+        por_diaria=True,
+    )
+    serv = service.criar_servico_adicional(payload)
+    assert serv.id is not None
+    assert serv.nome == "Aluguel de Bike"
+
+    serv_buscado = service.obter_servico_adicional(serv.id)
+    assert serv_buscado.preco == 25.0
+
+    service.remover_servico_adicional(serv.id)
+    from app.services.reserva_service import RecursoNaoEncontradoError
+    with pytest.raises(RecursoNaoEncontradoError):
+        service.obter_servico_adicional(serv.id)
+
+
+def test_cotacao_quarto_inativo_lanca_erro(db_session, setup_cenario):
+    service = ReservaService(db_session)
+    quarto = setup_cenario["quarto"]
+    quarto.ativo = False
+    db_session.commit()
+
+    from app.services.reserva_service import RecursoNaoEncontradoError
+    req = CotacaoRequestSchema(
+        quarto_id=quarto.id,
+        checkin=date(2026, 11, 1),
+        checkout=date(2026, 11, 5),
+        adultos=2,
+    )
+    with pytest.raises(RecursoNaoEncontradoError):
+        service.calcular_cotacao(req)
