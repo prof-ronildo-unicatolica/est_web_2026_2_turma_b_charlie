@@ -32,8 +32,9 @@ export default function LoginPage() {
         {erro && <div className="alert alert-danger">{erro}</div>}
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
-            <label className="form-label">E-mail</label>
+            <label htmlFor="login-email" className="form-label">E-mail</label>
             <input
+              id="login-email"
               type="email"
               className="form-control"
               value={email}
@@ -42,8 +43,9 @@ export default function LoginPage() {
             />
           </div>
           <div className="mb-3">
-            <label className="form-label">Senha</label>
+            <label htmlFor="login-senha" className="form-label">Senha</label>
             <input
+              id="login-senha"
               type="password"
               className="form-control"
               value={senha}

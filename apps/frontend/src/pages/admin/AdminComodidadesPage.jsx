@@ -77,8 +77,8 @@ export default function AdminComodidadesPage() {
             <tr key={com.id}>
               <td>{com.nome}</td>
               <td>
-                <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(com)}>Editar</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleRemover(com.id)}>Remover</button>
+                <button type="button" className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(com)}>Editar</button>
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleRemover(com.id)}>Remover</button>
               </td>
             </tr>
           ))}
