@@ -1,6 +1,6 @@
+import asyncio
 import uuid
 import pytest
-from unittest.mock import AsyncMock
 
 from app.services.hotel_service import (
     CapacidadeInvalidaError,
@@ -16,7 +16,6 @@ from app.services.hotel_service import (
     QuartoNumeroDuplicadoError,
     QuartoService,
 )
-
 
 
 def test_cidade_service_crud_sucesso(db_session):
@@ -74,86 +73,82 @@ def test_comodidade_service_duplicidade_lanca_erro(db_session):
 
 
 
-@pytest.mark.asyncio
-async def test_hotel_service_criar_e_atualizar_sucesso(db_session):
+def test_hotel_service_criar_e_atualizar_sucesso(db_session):
     cid_service = CidadeService(db_session)
     cidade = cid_service.criar("Gramado")
 
     hotel_service = HotelService(db_session)
-    hotel = await hotel_service.criar("Hotel Serra Viva", cidade.id, 5)
+    hotel = asyncio.run(hotel_service.criar("Hotel Serra Viva", cidade.id, 5))
     assert hotel.id is not None
     assert hotel.categoria_estrelas == 5
 
-    atualizado = await hotel_service.atualizar(hotel.id, {"nome": "Hotel Serra Viva Premium"})
+    atualizado = asyncio.run(hotel_service.atualizar(hotel.id, {"nome": "Hotel Serra Viva Premium"}))
     assert atualizado.nome == "Hotel Serra Viva Premium"
 
 
-@pytest.mark.asyncio
-async def test_hotel_service_criar_cidade_invalida_lanca_erro(db_session):
+def test_hotel_service_criar_cidade_invalida_lanca_erro(db_session):
     hotel_service = HotelService(db_session)
     with pytest.raises(CidadeNaoEncontradaError):
-        await hotel_service.criar("Hotel Fantasma", uuid.uuid4())
+        asyncio.run(hotel_service.criar("Hotel Fantasma", uuid.uuid4()))
 
 
-@pytest.mark.asyncio
-async def test_hotel_service_associar_comodidade(db_session):
+def test_hotel_service_associar_comodidade(db_session):
     cid_service = CidadeService(db_session)
     cidade = cid_service.criar("Canela")
     com_service = ComodidadeService(db_session)
     comodidade = com_service.criar("Lareira")
 
     hotel_service = HotelService(db_session)
-    hotel = await hotel_service.criar("Pousada Encantada", cidade.id, 4)
+    hotel = asyncio.run(hotel_service.criar("Pousada Encantada", cidade.id, 4))
 
-    h_com = await hotel_service.adicionar_comodidade(hotel.id, comodidade.id)
+    h_com = asyncio.run(hotel_service.adicionar_comodidade(hotel.id, comodidade.id))
     assert any(c.nome == "Lareira" for c in h_com.comodidades)
 
-    h_sem = await hotel_service.remover_comodidade(hotel.id, comodidade.id)
+    h_sem = asyncio.run(hotel_service.remover_comodidade(hotel.id, comodidade.id))
     assert not any(c.nome == "Lareira" for c in h_sem.comodidades)
 
 
 
-@pytest.mark.asyncio
-async def test_quarto_service_criar_sucesso(db_session):
+def test_quarto_service_criar_sucesso(db_session):
     cid = CidadeService(db_session).criar("Maceió")
-    hotel = await HotelService(db_session).criar("Maceió Flat", cid.id, 4)
+    hotel = asyncio.run(HotelService(db_session).criar("Maceió Flat", cid.id, 4))
 
     quarto_service = QuartoService(db_session)
-    quarto = await quarto_service.criar(
-        hotel_id=hotel.id,
-        numero="201",
-        tipo="Deluxe",
-        preco_diaria=250.0,
-        max_adultos=2,
-        max_criancas=1,
+    quarto = asyncio.run(
+        quarto_service.criar(
+            hotel_id=hotel.id,
+            numero="201",
+            tipo="Deluxe",
+            preco_diaria=250.0,
+            max_adultos=2,
+            max_criancas=1,
+        )
     )
     assert quarto.id is not None
     assert quarto.numero == "201"
     assert quarto.preco_diaria == 250.0
 
 
-@pytest.mark.asyncio
-async def test_quarto_service_numero_duplicado_lanca_erro(db_session):
+def test_quarto_service_numero_duplicado_lanca_erro(db_session):
     cid = CidadeService(db_session).criar("Aracaju")
-    hotel = await HotelService(db_session).criar("Aracaju Suítes", cid.id, 3)
+    hotel = asyncio.run(HotelService(db_session).criar("Aracaju Suítes", cid.id, 3))
 
     quarto_service = QuartoService(db_session)
-    await quarto_service.criar(hotel.id, "101", "Standard", 150.0)
+    asyncio.run(quarto_service.criar(hotel.id, "101", "Standard", 150.0))
 
     with pytest.raises(QuartoNumeroDuplicadoError):
-        await quarto_service.criar(hotel.id, "101", "Standard Duplo", 180.0)
+        asyncio.run(quarto_service.criar(hotel.id, "101", "Standard Duplo", 180.0))
 
 
-@pytest.mark.asyncio
-async def test_quarto_service_capacidades_invalidas_lanca_erro(db_session):
+def test_quarto_service_capacidades_invalidas_lanca_erro(db_session):
     cid = CidadeService(db_session).criar("Curitiba")
-    hotel = await HotelService(db_session).criar("Curitiba Hotel", cid.id, 3)
+    hotel = asyncio.run(HotelService(db_session).criar("Curitiba Hotel", cid.id, 3))
     quarto_service = QuartoService(db_session)
 
-    # adultos < 1
+    # Adultos < 1
     with pytest.raises(CapacidadeInvalidaError):
-        await quarto_service.criar(hotel.id, "102", "Standard", 150.0, max_adultos=0)
+        asyncio.run(quarto_service.criar(hotel.id, "102", "Standard", 150.0, max_adultos=0))
 
-    # crianças < 0
+    # Crianças < 0
     with pytest.raises(CapacidadeInvalidaError):
-        await quarto_service.criar(hotel.id, "103", "Standard", 150.0, max_criancas=-1)
+        asyncio.run(quarto_service.criar(hotel.id, "103", "Standard", 150.0, max_criancas=-1))
