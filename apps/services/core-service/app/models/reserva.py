@@ -14,8 +14,13 @@ class Reserva(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
 
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    usuario: Mapped["Usuario"] = relationship("Usuario")
+
     quarto_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("quartos.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("quartos.id", ondelete="CASCADE"), nullable=False, index=True
     )
     quarto: Mapped["Quarto"] = relationship("Quarto")  
 
@@ -27,7 +32,7 @@ class Reserva(Base):
     bebes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     valor_total: Mapped[float] = mapped_column(Float, nullable=False)
 
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="Pendente")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="Pendente", index=True)
 
     cotacao_snapshot: Mapped[Optional[dict]] = mapped_column(
         JSONB().with_variant(JSON, "sqlite"), nullable=True
