@@ -77,3 +77,8 @@ export const tarifaTemporadaService = {
   atualizar: (id, payload) => api.put(`/admin/tarifas-temporada/${id}`, payload).then(r => r.data),
   remover: (id) => api.delete(`/admin/tarifas-temporada/${id}`),
 }
+
+export const reservaService = {
+  criar: (payload) => api.post('/reservas', payload).then(r => r.data),
+  consultarStatus: (id) => api.get(`/reservas/${id}`).then(r => r.data),
+}
