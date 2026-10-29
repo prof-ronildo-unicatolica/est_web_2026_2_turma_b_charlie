@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
-import { cotacaoService, hotelService, quartoService, servicoAdicionalService } from '../services/catalogo'
+import { cotacaoService, hotelService, quartoService, servicoAdicionalService, reservaService } from '../services/catalogo'
 
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams()
@@ -32,6 +32,11 @@ export default function CheckoutPage() {
   const [calculando, setCalculando] = useState(false)
   const [erroCotacao, setErroCotacao] = useState('')
   const [sucessoMsg, setSucessoMsg] = useState('')
+
+  const [reservaId, setReservaId] = useState(null)
+  const [reservaStatus, setReservaStatus] = useState(null) 
+  const [enviando, setEnviando] = useState(false)
+  const [erroReserva, setErroReserva] = useState('')
 
   
   useEffect(() => {
@@ -101,15 +106,52 @@ export default function CheckoutPage() {
     servicosSelecionados,
   ])
 
+  useEffect(() => {
+    if (!reservaId || reservaStatus !== 'Pendente') return
+
+    const intervalo = setInterval(async () => {
+      try {
+        const data = await reservaService.consultarStatus(reservaId)
+        setReservaStatus(data.status)
+        if (data.status !== 'Pendente') clearInterval(intervalo)
+      } catch (err) {
+        console.error('[Polling] Erro ao consultar status da reserva:', err)
+      }
+    }, 3000)
+
+    return () => clearInterval(intervalo)
+  }, [reservaId, reservaStatus])
+
   const toggleServico = (id) => {
     setServicosSelecionados((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     )
   }
 
-  const handleFinalizar = (e) => {
+  const handleFinalizar = async (e) => {
     e.preventDefault()
-    setSucessoMsg('Cotação confirmada com sucesso! O processamento assíncrono da reserva será executado na próxima sprint')
+    if (!cotacao) return
+    try {
+      setEnviando(true)
+      setErroReserva('')
+      const payload = {
+        quarto_id: quartoIdParam,
+        checkin,
+        checkout,
+        adultos: Number(adultos),
+        criancas: Number(criancas),
+        bebes: Number(bebes),
+        valor_total: cotacao.valor_total,
+        cotacao_snapshot: cotacao,  
+      }
+      const resposta = await reservaService.criar(payload)
+      setReservaId(resposta.id)
+      setReservaStatus('Pendente')  
+    } catch (err) {
+      setErroReserva(err.response?.data?.detail || 'Erro ao criar reserva. Tente novamente.')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   if (!quartoIdParam) {
@@ -119,6 +161,119 @@ export default function CheckoutPage() {
           Nenhum quarto selecionado para checkout.
         </div>
         <Link to="/" className="btn btn-primary">Voltar para a Busca</Link>
+      </div>
+    )
+  }
+
+  if (reservaStatus === 'Pendente') {
+    return (
+      <div className="container py-5 text-center">
+        <div className="card shadow border-0 p-5 mx-auto bg-white" style={{ maxWidth: '520px' }}>
+          <div
+            className="spinner-border text-primary mb-4"
+            style={{ width: '3.5rem', height: '3.5rem' }}
+            role="status"
+          />
+          <h3 className="fw-bold mb-2">Processando sua Reserva...</h3>
+          <p className="text-muted">
+            Validando disponibilidade contra overbooking e processando o pagamento.
+          </p>
+          <div className="mt-3 badge bg-secondary p-2 fs-6">
+            ID: <code className="text-white">{reservaId}</code>
+          </div>
+          <p className="text-muted small mt-3">🔄 Verificando confirmação a cada 3 segundos...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (reservaStatus === 'Confirmada') {
+    return (
+      <div className="container py-5">
+        <div className="card border-success shadow p-5 mx-auto bg-white" style={{ maxWidth: '640px' }}>
+          <div className="text-center mb-4">
+            <span style={{ fontSize: '4rem' }}> 🎉 </span>
+            <h2 className="fw-bold text-success mt-2">Reserva Confirmada!</h2>
+            <p className="text-muted">Pagamento processado com sucesso e acomodação garantida.</p>
+          </div>
+          <div className="border rounded p-4 bg-light mb-4">
+            <h5 className="fw-bold mb-3 text-primary">🏨 Voucher da Reserva</h5>
+            <div className="row g-3 small">
+              <div className="col-sm-6">
+                <strong>ID da Reserva:</strong>
+                <div className="text-muted font-monospace">{reservaId}</div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Status:</strong>
+                <div><span className="badge bg-success">✅ Confirmada</span></div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Hotel:</strong>
+                <div className="text-dark fw-semibold">{hotel?.nome}</div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Quarto:</strong>
+                <div className="text-dark fw-semibold">#{quarto?.numero} — {quarto?.tipo}</div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Check-in:</strong>
+                <div className="text-dark">{checkin}</div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Check-out:</strong>
+                <div className="text-dark">{checkout}</div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Hóspedes:</strong>
+                <div className="text-dark">
+                  {adultos} adulto(s){criancas > 0 ? `, ${criancas} criança(s)` : ''}{bebes > 0 ? `, ${bebes} bebê(s)` : ''}
+                </div>
+              </div>
+              <div className="col-sm-6">
+                <strong>Valor Total:</strong>
+                <div className="text-success fw-bold fs-5">R$ {cotacao?.valor_total?.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="d-flex gap-3 justify-content-center">
+            <button className="btn btn-outline-secondary" onClick={() => window.print()}>
+              🖨️ Imprimir Voucher
+            </button>
+            <Link to="/" className="btn btn-primary px-4">
+              🏠 Voltar à Busca
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (reservaStatus === 'Cancelada' || erroReserva) {
+    return (
+      <div className="container py-5">
+        <div className="card border-danger shadow p-5 mx-auto text-center bg-white" style={{ maxWidth: '540px' }}>
+          <span style={{ fontSize: '4rem' }}> ❌ </span>
+          <h2 className="fw-bold text-danger mt-2">Reserva Cancelada</h2>
+          <p className="text-muted mt-2">
+            {erroReserva || 'O quarto não está mais disponível para este período.'}
+          </p>
+          {reservaId && <p className="small text-muted">ID da solicitação: <code>{reservaId}</code></p>}
+          <div className="d-flex gap-3 justify-content-center mt-4">
+            <button
+              className="btn btn-outline-secondary"
+              onClick={() => {
+                setReservaId(null)
+                setReservaStatus(null)
+                setErroReserva('')
+              }}
+            >
+              ← Tentar Novamente
+            </button>
+            <Link to="/" className="btn btn-primary px-4">
+              Buscar Outros Quartos
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
@@ -456,11 +611,19 @@ export default function CheckoutPage() {
                   <button
                     className="btn btn-primary w-100 py-3 fw-bold fs-5 shadow-sm"
                     onClick={handleFinalizar}
+                    disabled={enviando || !cotacao}
                   >
-                    Confirmar Solicitação de Reserva
+                    {enviando ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" />
+                        Enviando solicitação...
+                      </>
+                    ) : (
+                      'Confirmar Solicitação de Reserva'
+                    )}
                   </button>
                   <small className="text-muted text-center d-block mt-2">
-                    🔒 Pagamento protegido e confirmação garantida.
+                    🔒 Pagamento processado de forma segura e assíncrona.
                   </small>
                 </div>
               ) : (
