@@ -1,97 +1,89 @@
 import asyncio
 import json
+import logging
 import uuid
 from datetime import date, datetime
 
 import aio_pika
-from motor.motor_asyncio import AsyncIOMotorClient
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.mongodb import get_mongo_db
+from app.models.reserva import Reserva
 from app.repositories.reserva_repository import ReservaRepository
+
+logging.basicConfig(level=logging.INFO, format="[ReservaWorker] %(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("reserva_worker")
 
 FILA_SOLICITACOES = "solicitacoes-reserva"
 
 
-async def _gravar_auditoria(mongo_db, reserva_id, quarto_id, status_final, motivo, checkin, checkout, valor_total):
-    await mongo_db["historico_auditoria"].insert_one({
-        "reserva_id": reserva_id, "quarto_id": quarto_id,
-        "status_final": status_final, "motivo": motivo,
-        "checkin": checkin, "checkout": checkout,
-        "valor_total": valor_total, "processado_em": datetime.utcnow().isoformat(),
-    })
-    print(f"[Worker] Auditoria: reserva={reserva_id} status={status_final}")
-
-
-async def _processar_mensagem(message: aio_pika.IncomingMessage, mongo_db):
+async def processar_mensagem(message: aio_pika.IncomingMessage):
     async with message.process():
-        db = SessionLocal()
+        corpo = json.loads(message.body.decode())
+        reserva_id = uuid.UUID(corpo["reserva_id"])
+        usuario_id = corpo.get("usuario_id")
+        quarto_id = uuid.UUID(corpo["quarto_id"])
+        checkin = date.fromisoformat(corpo["checkin"])
+        checkout = date.fromisoformat(corpo["checkout"])
+        valor_total = float(corpo["valor_total"])
+
+        logger.info(f"Processando reserva {reserva_id} (Usuário: {usuario_id}) para Quarto {quarto_id}")
+
+        db: Session = SessionLocal()
         try:
-            data = json.loads(message.body.decode("utf-8"))
-            reserva_id = uuid.UUID(data["reserva_id"])
-            checkin = date.fromisoformat(data["checkin"])
-            checkout = date.fromisoformat(data["checkout"])
-
-            print(f"[Worker] Processando {data['reserva_id']} | quarto={data['quarto_id']}")
-
             repo = ReservaRepository(db)
-            reserva = repo.get_by_id(reserva_id)
+            reserva: Reserva = repo.get_by_id(reserva_id)
             if not reserva:
-                print(f"[Worker] Reserva não encontrada. Descartando.")
+                logger.error(f"Reserva {reserva_id} não encontrada no banco.")
                 return
 
-            
-            conflitos = repo.list_conflitos(reserva.quarto_id, checkin, checkout)
+            conflitos = repo.list_conflitos(quarto_id, checkin, checkout)
             if conflitos:
-                motivo = f"Overbooking: {len(conflitos)} reserva(s) confirmada(s) no período."
+                logger.warning(f"Overbooking detectado para a reserva {reserva_id}. Cancelando.")
                 repo.update_status(reserva, "Cancelada")
-                print(f"[Worker] CANCELADA — {motivo}")
-                await _gravar_auditoria(mongo_db, data["reserva_id"], data["quarto_id"],
-                                        "Cancelada", motivo, data["checkin"], data["checkout"],
-                                        float(data["valor_total"]))
-                return
+                motivo = "Overbooking: quarto indisponível no período solicitado."
+                status_final = "Cancelada"
+            else:
+                logger.info(f"Simulando confirmação de pagamento para reserva {reserva_id}...")
+                await asyncio.sleep(2.0)
+                repo.update_status(reserva, "Confirmada")
+                motivo = "Pagamento aprovado e reserva confirmada com sucesso."
+                status_final = "Confirmada"
 
-            
-            print(f"[Worker] Simulando pagamento...")
-            await asyncio.sleep(2)
+            mongo_db = get_mongo_db()
+            auditoria = {
+                "reserva_id": str(reserva_id),
+                "usuario_id": str(usuario_id),
+                "quarto_id": str(quarto_id),
+                "checkin": checkin.isoformat(),
+                "checkout": checkout.isoformat(),
+                "valor_total": valor_total,
+                "status": status_final,
+                "motivo": motivo,
+                "processado_em": datetime.utcnow().isoformat(),
+            }
+            await mongo_db.historico_auditoria.insert_one(auditoria)
+            logger.info(f"Auditoria gravada no MongoDB para reserva {reserva_id} ({status_final})")
 
-           
-            repo.update_status(reserva, "Confirmada")
-            print(f"[Worker] CONFIRMADA!")
-            await _gravar_auditoria(mongo_db, data["reserva_id"], data["quarto_id"],
-                                    "Confirmada", "Pagamento aprovado. Sem overbooking.",
-                                    data["checkin"], data["checkout"], float(data["valor_total"]))
-
-        except Exception as exc:
-            print(f"[Worker] ERRO: {exc}")
-            try:
-                repo = ReservaRepository(db)
-                r = repo.get_by_id(uuid.UUID(json.loads(message.body.decode())["reserva_id"]))
-                if r and r.status == "Pendente":
-                    repo.update_status(r, "Cancelada")
-            except Exception:
-                pass
+        except Exception as e:
+            logger.exception(f"Erro inesperado ao processar reserva {reserva_id}: {e}")
         finally:
             db.close()
 
 
 async def main():
-    print(f"[Worker] Conectando ao RabbitMQ: {settings.RABBITMQ_URL}")
-    connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
-    mongo_client = AsyncIOMotorClient(settings.MONGODB_URL)
-    mongo_db = mongo_client[settings.MONGODB_DB]
+    logger.info("Iniciando Worker de Reservas Assíncronas (Sprint 7)...")
+    conexao = await aio_pika.connect_robust(settings.RABBITMQ_URL)
+    canal = await conexao.channel()
+    await canal.set_qos(prefetch_count=1)
 
-    async with connection:
-        channel = await connection.channel()
-        await channel.set_qos(prefetch_count=1)  
-        queue = await channel.declare_queue(FILA_SOLICITACOES, durable=True)
-        print(f"[Worker] Aguardando '{FILA_SOLICITACOES}' (prefetch=1, serial)")
-        await queue.consume(lambda msg: _processar_mensagem(msg, mongo_db))
-        await asyncio.Future()
+    fila = await canal.declare_queue(FILA_SOLICITACOES, durable=True)
+    logger.info(f"Aguardando mensagens na fila '{FILA_SOLICITACOES}' (consumo serial prefetch=1)...")
+    await fila.consume(processar_mensagem)
+    await asyncio.Future()
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("[Worker] Parado.")
+    asyncio.run(main())
