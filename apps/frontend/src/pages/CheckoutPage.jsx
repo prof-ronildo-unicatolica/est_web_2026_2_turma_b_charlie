@@ -128,31 +128,40 @@ export default function CheckoutPage() {
     )
   }
 
-  const handleFinalizar = async (e) => {
-    e.preventDefault()
-    if (!cotacao) return
-    try {
-      setEnviando(true)
-      setErroReserva('')
-      const payload = {
-        quarto_id: quartoIdParam,
-        checkin,
-        checkout,
-        adultos: Number(adultos),
-        criancas: Number(criancas),
-        bebes: Number(bebes),
-        valor_total: cotacao.valor_total,
-        cotacao_snapshot: cotacao,  
-      }
-      const resposta = await reservaService.criar(payload)
-      setReservaId(resposta.id)
-      setReservaStatus('Pendente')  
-    } catch (err) {
-      setErroReserva(err.response?.data?.detail || 'Erro ao criar reserva. Tente novamente.')
-    } finally {
-      setEnviando(false)
-    }
+const handleFinalizar = async (e) => {
+  e.preventDefault()
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    setErroCotacao('Você precisa estar logado para realizar uma reserva. Faça login antes de prosseguir.')
+    setTimeout(() => navigate('/login'), 2000)
+    return
   }
+
+  try {
+    setEnviando(true)
+    setErroCotacao('')
+
+    const payload = {
+      quarto_id: quartoIdParam,
+      checkin,
+      checkout,
+      adultos: Number(adultos),
+      criancas: Number(criancas),
+      bebes: Number(bebes),
+      valor_total: Number(cotacao.total_geral),
+      cotacao_snapshot: cotacao,
+    }
+
+    const aceita = await reservaService.criar(payload)
+    setReservaId(aceita.id)
+    setEtapa('processando')
+  } catch (err) {
+    const msgErro = err.response?.data?.detail || 'Erro ao enviar solicitação de reserva.'
+    setErroCotacao(msgErro)
+  } finally {
+    setEnviando(false)
+  }
+}
 
   if (!quartoIdParam) {
     return (
@@ -190,13 +199,13 @@ export default function CheckoutPage() {
   if (reservaStatus === 'Confirmada') {
     return (
       <div className="container py-5">
-        <div className="card border-success shadow p-5 mx-auto bg-white" style={{ maxWidth: '640px' }}>
-          <div className="text-center mb-4">
-            <span style={{ fontSize: '4rem' }}> 🎉 </span>
-            <h2 className="fw-bold text-success mt-2">Reserva Confirmada!</h2>
-            <p className="text-muted">Pagamento processado com sucesso e acomodação garantida.</p>
+        <div className="card border-success shadow p-5 mx-auto bg-white text-center" style={{ maxWidth: '640px' }}>
+          <div className="mb-4">
+            <span style={{ fontSize: '4rem' }}>🎉</span>
+            <h2 className="fw-bold text-success mt-2">Reserva Confirmada com Sucesso!</h2>
+            <p className="text-muted">Seu pagamento foi aprovado e a acomodação está garantida.</p>
           </div>
-          <div className="border rounded p-4 bg-light mb-4">
+          <div className="border rounded p-4 bg-light mb-4 text-start">
             <h5 className="fw-bold mb-3 text-primary">🏨 Voucher da Reserva</h5>
             <div className="row g-3 small">
               <div className="col-sm-6">
@@ -235,12 +244,16 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-          <div className="d-flex gap-3 justify-content-center">
-            <button className="btn btn-outline-secondary" onClick={() => window.print()}>
+          {/* Botões de Ação com redirecionamento para o Painel do Hóspede */}
+          <div className="d-flex flex-wrap justify-content-center gap-3 mt-3">
+            <Link to="/minhas-reservas" className="btn btn-primary px-4 py-2 fw-semibold">
+              🛎️ Ver no Painel Minhas Reservas
+            </Link>
+            <button className="btn btn-outline-secondary px-3" onClick={() => window.print()}>
               🖨️ Imprimir Voucher
             </button>
-            <Link to="/" className="btn btn-primary px-4">
-              🏠 Voltar à Busca
+            <Link to="/" className="btn btn-outline-secondary px-4 py-2">
+              Voltar para a Busca
             </Link>
           </div>
         </div>
