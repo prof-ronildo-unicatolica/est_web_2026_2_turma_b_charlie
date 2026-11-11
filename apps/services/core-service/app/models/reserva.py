@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Boolean, Column, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Boolean, Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +33,15 @@ class Reserva(Base):
     valor_total: Mapped[float] = mapped_column(Float, nullable=False)
 
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Pendente", index=True)
+
+    tipo_tarifa: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="reembolsavel"
+    )
+
+    valor_multa: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    valor_reembolso: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    cancelado_em: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    motivo_cancelamento: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     cotacao_snapshot: Mapped[Optional[dict]] = mapped_column(
         JSONB().with_variant(JSON, "sqlite"), nullable=True
