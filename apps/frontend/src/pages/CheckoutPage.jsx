@@ -128,40 +128,40 @@ export default function CheckoutPage() {
     )
   }
 
-const handleFinalizar = async (e) => {
-  e.preventDefault()
-  const token = localStorage.getItem('access_token')
-  if (!token) {
-    setErroCotacao('Você precisa estar logado para realizar uma reserva. Faça login antes de prosseguir.')
-    setTimeout(() => navigate('/login'), 2000)
-    return
-  }
-
-  try {
-    setEnviando(true)
-    setErroCotacao('')
-
-    const payload = {
-      quarto_id: quartoIdParam,
-      checkin,
-      checkout,
-      adultos: Number(adultos),
-      criancas: Number(criancas),
-      bebes: Number(bebes),
-      valor_total: Number(cotacao.total_geral),
-      cotacao_snapshot: cotacao,
+  const handleFinalizar = async (e) => {
+    e.preventDefault()
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      setErroCotacao('Você precisa estar logado para realizar uma reserva. Faça login antes de prosseguir.')
+      setTimeout(() => navigate('/login'), 2000)
+      return
     }
 
-    const aceita = await reservaService.criar(payload)
-    setReservaId(aceita.id)
-    setEtapa('processando')
-  } catch (err) {
-    const msgErro = err.response?.data?.detail || 'Erro ao enviar solicitação de reserva.'
-    setErroCotacao(msgErro)
-  } finally {
-    setEnviando(false)
+    try {
+      setEnviando(true)
+      setErroCotacao('')
+
+      const payload = {
+        quarto_id: quartoIdParam,
+        checkin,
+        checkout,
+        adultos: Number(adultos),
+        criancas: Number(criancas),
+        bebes: Number(bebes),
+        valor_total: Number(cotacao.total_geral),
+        cotacao_snapshot: cotacao,
+      }
+
+      const aceita = await reservaService.criar(payload)
+      setReservaId(aceita.id)
+      setEtapa('processando')
+    } catch (err) {
+      const msgErro = err.response?.data?.detail || 'Erro ao enviar solicitação de reserva.'
+      setErroCotacao(msgErro)
+    } finally {
+      setEnviando(false)
+    }
   }
-}
 
   if (!quartoIdParam) {
     return (
@@ -244,7 +244,8 @@ const handleFinalizar = async (e) => {
               </div>
             </div>
           </div>
-          {/* Botões de Ação com redirecionamento para o Painel do Hóspede */}
+
+          {/* redirecionamento para o painel do hospede */}
           <div className="d-flex flex-wrap justify-content-center gap-3 mt-3">
             <Link to="/minhas-reservas" className="btn btn-primary px-4 py-2 fw-semibold">
               🛎️ Ver no Painel Minhas Reservas
