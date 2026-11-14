@@ -76,10 +76,20 @@ export const tarifaTemporadaService = {
   criar: (payload) => api.post('/admin/tarifas-temporada', payload).then(r => r.data),
   atualizar: (id, payload) => api.put(`/admin/tarifas-temporada/${id}`, payload).then(r => r.data),
   remover: (id) => api.delete(`/admin/tarifas-temporada/${id}`),
+<<<<<<< HEAD
 } 
 export const reservaService = {
   
   criar: (payload) => api.post('/reservas', payload).then(r => r.data),
 
   consultarStatus: (id) => api.get(`/reservas/${id}`).then(r => r.data),
+=======
+}
+
+export const reservaService = {
+  criar: (payload) => api.post('/reservas', payload).then(r => r.data),
+  listarMinhasReservas: () => api.get('/reservas').then((r) => r.data),
+  consultarStatus: (id) => api.get(`/reservas/${id}`).then(r => r.data),
+  obterPorId: (id) => api.get(`/reservas/${id}`).then((r) => r.data),
+>>>>>>> be48b26b46d6e6e5694546729a0d0583241196e4
 }
