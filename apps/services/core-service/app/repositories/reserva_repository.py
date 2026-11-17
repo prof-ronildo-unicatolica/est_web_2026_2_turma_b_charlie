@@ -4,12 +4,12 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.hotel import Hotel, Quarto
+from app.models.hotel import Cidade, Hotel, Quarto
 from app.models.reserva import Reserva
 
 
 class ReservaRepository:
-    """Operações de persistência da entidade Reserva no PostgreSQL."""
+    """Operações de persistência para a entidade Reserva no PostgreSQL"""
 
     def __init__(self, db: Session):
         self.db = db
@@ -24,9 +24,11 @@ class ReservaRepository:
         criancas: int,
         bebes: int,
         valor_total: float,
+        tipo_tarifa: str = "reembolsavel",
         cotacao_snapshot: Optional[dict] = None,
         status: str = "Pendente",
     ) -> Reserva:
+        agora = datetime.utcnow()
         reserva = Reserva(
             usuario_id=usuario_id,
             quarto_id=quarto_id,
@@ -36,10 +38,13 @@ class ReservaRepository:
             criancas=criancas,
             bebes=bebes,
             valor_total=valor_total,
+            tipo_tarifa=tipo_tarifa,
             cotacao_snapshot=cotacao_snapshot,
             status=status,
-            criado_em=datetime.utcnow(),
-            atualizado_em=datetime.utcnow(),
+            valor_multa=0.0,
+            valor_reembolso=0.0,
+            criado_em=agora,
+            atualizado_em=agora,
         )
         self.db.add(reserva)
         self.db.commit()
@@ -50,7 +55,7 @@ class ReservaRepository:
         return self.db.query(Reserva).filter(Reserva.id == reserva_id).first()
 
     def get_by_id_with_relations(self, reserva_id: uuid.UUID) -> Optional[Reserva]:
-        """Carrega Reserva -> Quarto -> Hotel -> Cidade em uma consulta."""
+        """Carrega a reserva junto com Quarto -> Hotel -> Cidade para o Voucher e Regras."""
         return (
             self.db.query(Reserva)
             .options(
@@ -63,7 +68,6 @@ class ReservaRepository:
         )
 
     def list_by_usuario_id(self, usuario_id: uuid.UUID) -> List[Reserva]:
-        """Lista as reservas do usuário, da mais recente para a mais antiga."""
         return (
             self.db.query(Reserva)
             .options(
@@ -76,6 +80,26 @@ class ReservaRepository:
             .all()
         )
 
+    def cancelar_reserva(
+        self,
+        reserva: Reserva,
+        valor_multa: float,
+        valor_reembolso: float,
+        motivo: Optional[str] = None,
+        cancelado_em: Optional[datetime] = None,
+    ) -> Reserva:
+        agora = cancelado_em or datetime.utcnow()
+        reserva.status = "Cancelada"
+        reserva.valor_multa = valor_multa
+        reserva.valor_reembolso = valor_reembolso
+        reserva.cancelado_em = agora
+        reserva.motivo_cancelamento = motivo
+        reserva.atualizado_em = agora
+
+        self.db.commit()
+        self.db.refresh(reserva)
+        return reserva
+
     def update_status(self, reserva: Reserva, novo_status: str) -> Reserva:
         reserva.status = novo_status
         reserva.atualizado_em = datetime.utcnow()
@@ -84,12 +108,8 @@ class ReservaRepository:
         return reserva
 
     def list_conflitos(
-        self,
-        quarto_id: uuid.UUID,
-        checkin: date,
-        checkout: date,
+        self, quarto_id: uuid.UUID, checkin: date, checkout: date
     ) -> List[Reserva]:
-        """Busca reservas Confirmadas que se sobrepõem ao período — RNFO03."""
         return (
             self.db.query(Reserva)
             .filter(
