@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, get_mongo_db
 from app.core.rabbitmq import publish_event
 from app.models.hotel import Quarto
 from app.models.usuario import Usuario
@@ -16,9 +16,13 @@ from app.schemas.reserva import (
     ReservaCreateSchema,
     ReservaDetalheSchema,
     ReservaListItemSchema,
+    CancelamentoPreviewResponseSchema,
+    CancelamentoRequestSchema,
+    CancelamentoResponseSchema,
 )
+from app.services.cancelamento_service import CancelamentoService
 
-router = APIRouter(tags=["Painel de Reservas & Hóspede (Sprint 7)"])
+router = APIRouter(tags=["Painel de Reservas, Hóspede & Políticas"])
 
 FILA_SOLICITACOES = "solicitacoes-reserva"
 
@@ -34,7 +38,7 @@ def listar_minhas_reservas(
 ):
     """
     Retorna o histórico completo de reservas do usuário logado,
-    ordenado pela mais recente, com informações de hotel e quarto para exibição em cards.
+    ordenado pela mais recente, com informações de hotel e quarto para exibição em cards
     """
     repo = ReservaRepository(db)
     reservas = repo.list_by_usuario_id(usuario_atual.id)
@@ -50,6 +54,9 @@ def listar_minhas_reservas(
         quarto_numero = r.quarto.numero if r.quarto else "-"
         quarto_tipo = r.quarto.tipo if r.quarto else "Standard"
 
+        limite_cancelamento = CancelamentoService.calcular_limite_cancelamento(r.checkin)
+        pode_cancelar = r.status == "Confirmada"
+
         itens.append(
             ReservaListItemSchema(
                 id=r.id,
@@ -61,9 +68,15 @@ def listar_minhas_reservas(
                 criancas=r.criancas,
                 bebes=r.bebes,
                 valor_total=r.valor_total,
+                tipo_tarifa=r.tipo_tarifa,
                 status=r.status,
                 criado_em=r.criado_em,
                 atualizado_em=r.atualizado_em,
+                data_limite_cancelamento=limite_cancelamento,
+                pode_cancelar=pode_cancelar,
+                valor_multa=r.valor_multa or 0.0,
+                valor_reembolso=r.valor_reembolso or 0.0,
+                cancelado_em=r.cancelado_em,
                 hotel_nome=hotel_nome,
                 cidade_nome=cidade_nome,
                 quarto_numero=quarto_numero,
@@ -145,6 +158,7 @@ async def criar_reserva(
         criancas=payload.criancas,
         bebes=payload.bebes,
         valor_total=payload.valor_total,
+        tipo_tarifa=payload.tipo_tarifa,
         cotacao_snapshot=payload.cotacao_snapshot,
         status="Pendente",
     )
@@ -159,6 +173,7 @@ async def criar_reserva(
         "criancas": reserva.criancas,
         "bebes": reserva.bebes,
         "valor_total": reserva.valor_total,
+        "tipo_tarifa": reserva.tipo_tarifa,
     }
     await publish_event(FILA_SOLICITACOES, evento)
 
@@ -166,6 +181,99 @@ async def criar_reserva(
         id=reserva.id,
         status=reserva.status,
         mensagem="Reserva recebida e em processamento. Acompanhe pelo Painel de Reservas.",
+    )
+
+@router.get(
+    "/reservas/{reserva_id}/cancelamento-preview",
+    response_model=CancelamentoPreviewResponseSchema,
+    summary="Simula o cancelamento da reserva e calcula as multas aplicáveis",
+)
+def preview_cancelamento(
+    reserva_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    repo = ReservaRepository(db)
+    reserva = repo.get_by_id_with_relations(reserva_id)
+
+    if not reserva:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reserva não encontrada.")
+
+    if reserva.usuario_id != usuario_atual.id and not usuario_atual.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso não autorizado.")
+
+    if reserva.status == "Cancelada":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Esta reserva já foi cancelada anteriormente."
+        )
+
+    service = CancelamentoService(db, get_mongo_db())
+    politica = service.calcular_politica(reserva)
+    return CancelamentoPreviewResponseSchema(**politica)
+
+
+@router.post(
+    "/reservas/{reserva_id}/cancelar",
+    response_model=CancelamentoResponseSchema,
+    summary="Cancela uma reserva, aplica a política de multas (RFO10) e grava auditoria (RFO11)",
+)
+async def cancelar_reserva_endpoint(
+    reserva_id: uuid.UUID,
+    payload: CancelamentoRequestSchema = None,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    repo = ReservaRepository(db)
+    reserva = repo.get_by_id_with_relations(reserva_id)
+
+    if not reserva:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Reserva '{reserva_id}' não encontrada."
+        )
+
+    if reserva.usuario_id != usuario_atual.id and not usuario_atual.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: Você não possui autorização para cancelar esta reserva.",
+        )
+
+    if reserva.status == "Cancelada":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A solicitação não pôde ser processada: Esta reserva já está cancelada.",
+        )
+
+    motivo = payload.motivo if payload else None
+
+    # motor de cálculo
+    service = CancelamentoService(db, get_mongo_db())
+    politica = service.calcular_politica(reserva)
+
+    # persiste o cancelamento no PostgreSQL
+    reserva_atualizada = repo.cancelar_reserva(
+        reserva=reserva,
+        valor_multa=politica["valor_multa"],
+        valor_reembolso=politica["valor_reembolso"],
+        motivo=motivo,
+    )
+
+    # grava auditoria no MongoDB
+    await service.registrar_auditoria_cancelamento(
+        reserva=reserva_atualizada,
+        resultado_politica=politica,
+        motivo_usuario=motivo,
+    )
+
+    return CancelamentoResponseSchema(
+        id=reserva_atualizada.id,
+        status=reserva_atualizada.status,
+        tipo_tarifa=reserva_atualizada.tipo_tarifa,
+        valor_total=reserva_atualizada.valor_total,
+        valor_multa=reserva_atualizada.valor_multa,
+        valor_reembolso=reserva_atualizada.valor_reembolso,
+        cancelado_em=reserva_atualizada.cancelado_em,
+        motivo=reserva_atualizada.motivo_cancelamento,
+        mensagem=politica["mensagem_politica"],
     )
 
 
@@ -199,4 +307,27 @@ def obter_detalhes_reserva(
             detail="Acesso negado: Você não possui autorização para visualizar os detalhes desta reserva.",
         )
 
-    return reserva
+    limite_cancelamento = CancelamentoService.calcular_limite_cancelamento(reserva.checkin)
+
+    return ReservaDetalheSchema(
+        id=reserva.id,
+        usuario_id=reserva.usuario_id,
+        quarto_id=reserva.quarto_id,
+        checkin=reserva.checkin,
+        checkout=reserva.checkout,
+        adultos=reserva.adultos,
+        criancas=reserva.criancas,
+        bebes=reserva.bebes,
+        valor_total=reserva.valor_total,
+        tipo_tarifa=reserva.tipo_tarifa,
+        status=reserva.status,
+        valor_multa=reserva.valor_multa or 0.0,
+        valor_reembolso=reserva.valor_reembolso or 0.0,
+        cancelado_em=reserva.cancelado_em,
+        motivo_cancelamento=reserva.motivo_cancelamento,
+        data_limite_cancelamento=limite_cancelamento,
+        cotacao_snapshot=reserva.cotacao_snapshot,
+        criado_em=reserva.criado_em,
+        atualizado_em=reserva.atualizado_em,
+        quarto=reserva.quarto,
+    )
