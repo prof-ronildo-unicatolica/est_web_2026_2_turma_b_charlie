@@ -83,4 +83,6 @@ export const reservaService = {
   listarMinhasReservas: () => api.get('/reservas').then((r) => r.data),
   consultarStatus: (id) => api.get(`/reservas/${id}`).then(r => r.data),
   obterPorId: (id) => api.get(`/reservas/${id}`).then((r) => r.data),
+  obterPreviewCancelamento: (id) => api.get(`/reservas/${id}/cancelamento-preview`).then((r) => r.data),
+  cancelar: (id, payload = {}) => api.post(`/reservas/${id}/cancelar`, payload).then((r) => r.data),
 }
