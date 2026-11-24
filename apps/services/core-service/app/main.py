@@ -19,6 +19,7 @@ from app.core.seed_mongo import seed_mongo_users
 from app.services.catalogo_mongo_service import CatalogoMongoService
 from app.api.v1.cotacao import router as cotacao_router
 from app.api.v1.reservas import router as reservas_router
+from app.api.v1.avaliacoes import router as avaliacoes_router
 
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ app.include_router(admin_comodidades_router, prefix=settings.API_V1_STR)
 app.include_router(admin_quartos_router, prefix=settings.API_V1_STR)
 app.include_router(cotacao_router, prefix=settings.API_V1_STR)
 app.include_router(reservas_router, prefix=settings.API_V1_STR)
+app.include_router(avaliacoes_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def read_root():
