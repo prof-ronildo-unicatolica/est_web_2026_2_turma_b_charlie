@@ -83,6 +83,10 @@ class Hotel(Base):
     servicos_adicionais: Mapped[List["ServicoAdicional"]] = relationship(
         back_populates="hotel", cascade="all, delete-orphan"
     )
+    avaliacoes: Mapped[List["Avaliacao"]] = relationship(
+        back_populates="hotel",
+        cascade="all, delete-orphan",
+    )
 
 
 
