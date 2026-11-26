@@ -1,6 +1,8 @@
 import uuid
-import pytest
+
 from app.core.security import create_access_token
+from app.models.hotel import Cidade, Hotel, Quarto
+from app.models.usuario import Usuario
 
 BASE_ADM = "/api/v1/admin"
 BASE_PUB = "/api/v1"
@@ -162,3 +164,41 @@ def test_busca_publica_mongo_retorna_200(client, db_session):
     assert "total" in data
     assert "hoteis" in data
     assert isinstance(data["hoteis"], list)
+    assert data["limit"] == 20
+    assert data["offset"] == 0
+
+
+def test_listagem_quartos_paginada_para_admin(client, db_session):
+    cidade = Cidade(id=uuid.uuid4(), nome="Cidade Paginada")
+    hotel = Hotel(id=uuid.uuid4(), nome="Hotel Paginado", cidade=cidade)
+    admin = Usuario(
+        id=uuid.uuid4(),
+        nome="Admin de Teste",
+        email="admin@hotel.com",
+        senha_hash="hash",
+        is_admin=True,
+    )
+    quartos = [
+        Quarto(
+            id=uuid.uuid4(),
+            hotel=hotel,
+            numero=numero,
+            tipo="Standard",
+            preco_diaria=150.0,
+            max_adultos=2,
+            max_criancas=1,
+        )
+        for numero in ("102", "101", "103")
+    ]
+    db_session.add_all([cidade, hotel, admin, *quartos])
+    db_session.commit()
+
+    response = client.get(
+        f"{BASE_ADM}/quartos?hotel_id={hotel.id}&limit=2&offset=1",
+        headers=_admin_header(),
+    )
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["total"] == 3
+    assert [quarto["numero"] for quarto in data["items"]] == ["102", "103"]

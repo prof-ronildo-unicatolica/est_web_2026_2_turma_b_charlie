@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import PaginationControls from '../components/PaginationControls'
 import { reservaService } from '../services/catalogo'
+
+const PAGE_SIZE = 20
 
 export default function MinhasReservasPage() {
   const navigate = useNavigate()
   const [reservas, setReservas] = useState([])
+  const [offset, setOffset] = useState(0)
+  const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [sucessoMsg, setSucessoMsg] = useState('')
@@ -19,26 +24,38 @@ export default function MinhasReservasPage() {
 
   const token = localStorage.getItem('access_token')
 
-  const carregarReservas = async (mostrarLoading = true) => {
+  const carregarReservas = useCallback(async (mostrarLoading = true) => {
     if (!token) {
       navigate('/login')
       return
     }
     if (mostrarLoading) setCarregando(true)
     try {
-      const data = await reservaService.listarMinhasReservas()
-      setReservas(data)
+      const status = filtroStatus === 'TODAS'
+        ? undefined
+        : {
+            CONFIRMADA: 'Confirmada',
+            PENDENTE: 'Pendente',
+            CANCELADA: 'Cancelada',
+          }[filtroStatus]
+      const data = await reservaService.listarMinhasReservas({
+        limit: PAGE_SIZE,
+        offset,
+        status,
+      })
+      setReservas(data.items)
+      setTotal(data.total)
       setErro('')
     } catch (err) {
       setErro(err.response?.data?.detail || 'Erro ao carregar o painel de reservas.')
     } finally {
       if (mostrarLoading) setCarregando(false)
     }
-  }
+  }, [filtroStatus, navigate, offset, token])
 
   useEffect(() => {
     carregarReservas(true)
-  }, [])
+  }, [carregarReservas])
 
   useEffect(() => {
     const temPendente = reservas.some((r) => r.status === 'Pendente')
@@ -49,7 +66,7 @@ export default function MinhasReservasPage() {
     }, 3500)
 
     return () => clearInterval(intervalo)
-  }, [reservas])
+  }, [carregarReservas, reservas])
 
   const abrirVoucher = async (reservaId) => {
     try {
@@ -99,11 +116,6 @@ export default function MinhasReservasPage() {
       setCancelando(false)
     }
   }
-
-  const reservasFiltradas = reservas.filter((r) => {
-    if (filtroStatus === 'TODAS') return true
-    return r.status.toUpperCase() === filtroStatus
-  })
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -190,7 +202,10 @@ export default function MinhasReservasPage() {
             className={`btn btn-sm rounded-pill px-3 fw-semibold ${
               filtroStatus === f.value ? 'btn-primary shadow-sm' : 'btn-light border'
             }`}
-            onClick={() => setFiltroStatus(f.value)}
+            onClick={() => {
+              setFiltroStatus(f.value)
+              setOffset(0)
+            }}
           >
             {f.label}
           </button>
@@ -206,7 +221,7 @@ export default function MinhasReservasPage() {
       )}
 
       {/* empty state */}
-      {!carregando && reservasFiltradas.length === 0 && (
+      {!carregando && reservas.length === 0 && (
         <div className="card border-0 shadow-sm text-center py-5 my-3 bg-white">
           <div className="card-body">
             <span style={{ fontSize: '3.5rem' }}>🧳</span>
@@ -224,9 +239,9 @@ export default function MinhasReservasPage() {
       )}
 
       {/* grid de cards de Reserva */}
-      {!carregando && reservasFiltradas.length > 0 && (
+      {!carregando && reservas.length > 0 && (
         <div className="row g-4">
-          {reservasFiltradas.map((r) => {
+          {reservas.map((r) => {
             const ehReembolsavel = r.tipo_tarifa === 'reembolsavel'
             const dataLimiteFormatada = r.data_limite_cancelamento
               ? new Date(r.data_limite_cancelamento).toLocaleString('pt-BR', {
@@ -350,6 +365,14 @@ export default function MinhasReservasPage() {
             )
           })}
         </div>
+      )}
+      {!carregando && total > 0 && (
+        <PaginationControls
+          offset={offset}
+          limit={PAGE_SIZE}
+          total={total}
+          onPageChange={setOffset}
+        />
       )}
 
       {/* modal de confirmação de cancelamento com aviso de multa */}

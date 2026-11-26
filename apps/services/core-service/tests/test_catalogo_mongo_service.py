@@ -1,11 +1,11 @@
 import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from app.models.hotel import Cidade, Hotel, Quarto
 from app.services.catalogo_mongo_service import CatalogoMongoService
-
 
 
 @pytest.fixture
@@ -15,10 +15,13 @@ def mock_mongo():
     mock_col.create_index = AsyncMock()
     mock_col.replace_one = AsyncMock()
     mock_col.delete_one = AsyncMock()
+    mock_col.count_documents = AsyncMock(return_value=12)
 
     
     mock_cursor = MagicMock()
     mock_cursor.sort.return_value = mock_cursor
+    mock_cursor.skip.return_value = mock_cursor
+    mock_cursor.limit.return_value = mock_cursor
     mock_cursor.to_list = AsyncMock(return_value=[{"_id": "hotel_123", "nome": "Hotel Teste"}])
     mock_col.find.return_value = mock_cursor
 
@@ -157,7 +160,7 @@ def test_reconstruir_todo_catalogo(mock_mongo, db_session):
 def test_buscar_hoteis_com_filtros_e_coordenadas(mock_mongo, db_session):
     service = CatalogoMongoService(mock_mongo, db_session)
 
-    resultados = asyncio.run(
+    resultados, total = asyncio.run(
         service.buscar(
             cidade="Fortaleza",
             estrelas=4,
@@ -166,12 +169,20 @@ def test_buscar_hoteis_com_filtros_e_coordenadas(mock_mongo, db_session):
             preco_max=600.0,
             lat=-3.71,
             lng=-38.54,
+            limit=5,
+            offset=2,
         )
     )
 
     assert len(resultados) == 1
+    assert total == 12
     assert mock_mongo["catalogo_hoteis"].find.called
-    
+    mock_mongo["catalogo_hoteis"].count_documents.assert_called_once()
+    mock_mongo["catalogo_hoteis"].find.return_value.skip.assert_called_once_with(2)
+    mock_mongo["catalogo_hoteis"].find.return_value.limit.assert_called_once_with(5)
+    mock_mongo["catalogo_hoteis"].find.return_value.sort.assert_called_once_with(
+        [("preco_minimo", 1), ("hotel_id", 1)]
+    )
 
     query_executada = mock_mongo["catalogo_hoteis"].find.call_args[0][0]
     assert "cidade.nome" in query_executada
@@ -179,3 +190,17 @@ def test_buscar_hoteis_com_filtros_e_coordenadas(mock_mongo, db_session):
     assert query_executada["preco_minimo"] == {"$lte": 600.0}
     assert "cidade.limite_territorial" in query_executada
     assert "$geoIntersects" in query_executada["cidade.limite_territorial"]
+
+
+def test_buscar_pagina_vazia_preserva_total_encontrado(mock_mongo, db_session):
+    collection = mock_mongo["catalogo_hoteis"]
+    collection.count_documents.return_value = 5
+    collection.find.return_value.to_list = AsyncMock(return_value=[])
+    service = CatalogoMongoService(mock_mongo, db_session)
+
+    resultados, total = asyncio.run(service.buscar(limit=2, offset=10))
+
+    assert resultados == []
+    assert total == 5
+    collection.find.return_value.skip.assert_called_once_with(10)
+    collection.find.return_value.limit.assert_called_once_with(2)

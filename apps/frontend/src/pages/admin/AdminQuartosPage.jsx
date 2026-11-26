@@ -1,9 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { hotelService, quartoService, buscaService } from '../../services/catalogo'
+import PaginationControls from '../../components/PaginationControls'
+
+const PAGE_SIZE = 20
+const HOTEL_PAGE_SIZE = 100
 
 export default function AdminQuartosPage() {
   const [hoteis, setHoteis] = useState([])
+  const [hotelOffset, setHotelOffset] = useState(0)
+  const [hotelTotal, setHotelTotal] = useState(0)
   const [quartos, setQuartos] = useState([])
+  const [quartoOffset, setQuartoOffset] = useState(0)
+  const [quartoTotal, setQuartoTotal] = useState(0)
   const [hotelSelecionado, setHotelSelecionado] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
@@ -21,39 +29,68 @@ export default function AdminQuartosPage() {
     ativo: true,
   })
 
-  const carregarHoteis = async () => {
+  const carregarHoteis = useCallback(async (pageOffset = hotelOffset) => {
     try {
-      const lista = await hotelService.listar()
-      setHoteis(lista)
-      if (lista.length > 0) {
-        setHotelSelecionado((atual) => atual || lista[0].id)
+      const page = await hotelService.listar(null, {
+        limit: HOTEL_PAGE_SIZE,
+        offset: pageOffset,
+      })
+      if (page.items.length === 0 && pageOffset > 0) {
+        await carregarHoteis(Math.max(0, pageOffset - HOTEL_PAGE_SIZE))
+        return
       }
+      setHoteis(page.items)
+      setHotelTotal(page.total)
+      setHotelOffset(page.offset)
+      setHotelSelecionado((atual) =>
+        page.items.some((hotel) => hotel.id === atual)
+          ? atual
+          : page.items[0]?.id || ''
+      )
     } catch {
       setErro('Erro ao carregar lista de hotéis.')
     }
-  }
+  }, [hotelOffset])
 
-  const carregarQuartos = async (hid) => {
+  const carregarQuartos = useCallback(async (hid, pageOffset = quartoOffset) => {
     try {
       setCarregando(true)
-      const data = await quartoService.listar(hid || null)
-      setQuartos(data)
+      const page = await quartoService.listar(hid || null, {
+        limit: PAGE_SIZE,
+        offset: pageOffset,
+      })
+      if (page.items.length === 0 && pageOffset > 0) {
+        setQuartoOffset(Math.max(0, pageOffset - PAGE_SIZE))
+        return
+      }
+      setQuartos(page.items)
+      setQuartoTotal(page.total)
+      setQuartoOffset(page.offset)
     } catch {
       setErro('Erro ao carregar quartos.')
     } finally {
       setCarregando(false)
     }
-  }
+  }, [quartoOffset])
 
   useEffect(() => {
-    carregarHoteis()
-  }, [])
+    carregarHoteis(hotelOffset)
+  }, [carregarHoteis, hotelOffset])
 
   useEffect(() => {
     if (hotelSelecionado) {
-      carregarQuartos(hotelSelecionado)
+      carregarQuartos(hotelSelecionado, quartoOffset)
+    } else {
+      setQuartos([])
+      setQuartoTotal(0)
     }
-  }, [hotelSelecionado])
+  }, [carregarQuartos, hotelSelecionado, quartoOffset])
+
+  const selecionarHotel = (id) => {
+    setHotelSelecionado(id)
+    setQuartoOffset(0)
+    setForm((atual) => ({ ...atual, hotel_id: id }))
+  }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -156,6 +193,12 @@ export default function AdminQuartosPage() {
 
       {erro && <div className="alert alert-danger">{erro}</div>}
       {sucesso && <div className="alert alert-success">{sucesso}</div>}
+      <PaginationControls
+        offset={hotelOffset}
+        limit={HOTEL_PAGE_SIZE}
+        total={hotelTotal}
+        onPageChange={setHotelOffset}
+      />
 
       <div className="card shadow-sm p-4 mb-4">
         <h5 className="card-title mb-3 text-primary">
@@ -172,7 +215,7 @@ export default function AdminQuartosPage() {
                 value={form.hotel_id || hotelSelecionado}
                 onChange={(e) => {
                   handleChange(e)
-                  setHotelSelecionado(e.target.value)
+                  selecionarHotel(e.target.value)
                 }}
                 required
               >
@@ -322,7 +365,7 @@ export default function AdminQuartosPage() {
             <select
               className="form-select form-select-sm"
               value={hotelSelecionado}
-              onChange={(e) => setHotelSelecionado(e.target.value)}
+              onChange={(e) => selecionarHotel(e.target.value)}
               style={{ width: '220px' }}
             >
               {hoteis.map(h => (
@@ -377,6 +420,13 @@ export default function AdminQuartosPage() {
             )}
           </tbody>
         </table>
+        <PaginationControls
+          offset={quartoOffset}
+          limit={PAGE_SIZE}
+          total={quartoTotal}
+          disabled={carregando}
+          onPageChange={setQuartoOffset}
+        />
       </div>
     </div>
   )
