@@ -8,8 +8,7 @@ import aio_pika
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.database import SessionLocal
-from app.core.mongodb import get_mongo_db
+from app.core.database import SessionLocal, get_mongo_db
 from app.models.reserva import Reserva
 from app.repositories.reserva_repository import ReservaRepository
 
