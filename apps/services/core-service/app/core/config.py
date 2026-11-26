@@ -1,5 +1,9 @@
-from pydantic import ConfigDict
+from urllib.parse import urlsplit
+
+from pydantic import ConfigDict, model_validator
 from pydantic_settings import BaseSettings
+
+DEVELOPMENT_SECRET_KEY = "development-only-secret-key-not-for-production"
 
 
 class Settings(BaseSettings):
@@ -7,6 +11,10 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "Sistema de Reservas - Core Service"
     API_V1_STR: str = "/api/v1"
+    APP_ENV: str = "development"
+    CORS_ALLOWED_ORIGINS: str = (
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
 
     # Configurações do PostgreSQL
     POSTGRES_SERVER: str = "localhost"
@@ -27,9 +35,52 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
 
     # Configurações de autenticação de jwt
-    SECRET_KEY: str = "sua_chave_secreta_super_segura_de_no_minimo_32_bytes_deve_vir_do_env"
+    SECRET_KEY: str = DEVELOPMENT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.CORS_ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
+    @model_validator(mode="after")
+    def validate_non_development_security(self):
+        if self.APP_ENV == "development":
+            return self
+
+        if (
+            len(self.SECRET_KEY.encode("utf-8")) < 32
+            or self.SECRET_KEY == DEVELOPMENT_SECRET_KEY
+        ):
+            raise ValueError(
+                "SECRET_KEY must be unique and at least 32 bytes outside development."
+            )
+
+        if self.POSTGRES_PASSWORD == "postgres":
+            raise ValueError(
+                "POSTGRES_PASSWORD must be changed outside development."
+            )
+
+        if urlsplit(self.MONGODB_URL).password == "admin123":
+            raise ValueError(
+                "MONGODB_URL must not use the development password outside development."
+            )
+
+        if urlsplit(self.RABBITMQ_URL).password == "guest":
+            raise ValueError(
+                "RABBITMQ_URL must not use the guest password outside development."
+            )
+
+        if not self.cors_allowed_origins or "*" in self.cors_allowed_origins:
+            raise ValueError(
+                "CORS_ALLOWED_ORIGINS must contain explicit origins outside development."
+            )
+
+        return self
 
 
 settings = Settings()
