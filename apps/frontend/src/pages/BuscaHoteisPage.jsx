@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import HotelSkeleton from '../components/HotelSkeleton'
+import PaginationControls from '../components/PaginationControls'
 import { buscaService, cidadeService } from '../services/catalogo'
+
+const PAGE_SIZE = 20
 
 export default function BuscaHoteisPage() {
   const [cidades, setCidades] = useState([])
   const [hoteis, setHoteis] = useState([])
+  const [totalHoteis, setTotalHoteis] = useState(0)
+  const [offset, setOffset] = useState(0)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
@@ -23,10 +28,12 @@ export default function BuscaHoteisPage() {
         setCarregando(true)
         const [cidadesData, buscaData] = await Promise.all([
           cidadeService.listar(),
-          buscaService.buscarHoteis(),
+          buscaService.buscarHoteis({ limit: PAGE_SIZE, offset: 0 }),
         ])
         setCidades(cidadesData)
         setHoteis(buscaData.hoteis || [])
+        setTotalHoteis(buscaData.total)
+        setOffset(buscaData.offset)
       } catch {
         setErro('Erro ao conectar ao catálogo MongoDB.')
       } finally {
@@ -40,13 +47,18 @@ export default function BuscaHoteisPage() {
     setFiltros({ ...filtros, [e.target.name]: e.target.value })
   }
 
-  const handleBuscar = async (e) => {
-    if (e) e.preventDefault()
+  const carregarBusca = async (filtrosAplicados, pageOffset) => {
     setCarregando(true)
     setErro('')
     try {
-      const data = await buscaService.buscarHoteis(filtros)
+      const data = await buscaService.buscarHoteis({
+        ...filtrosAplicados,
+        limit: PAGE_SIZE,
+        offset: pageOffset,
+      })
       setHoteis(data.hoteis || [])
+      setTotalHoteis(data.total)
+      setOffset(data.offset)
     } catch (err) {
       setErro(err.response?.data?.detail || 'Erro ao realizar busca no MongoDB.')
     } finally {
@@ -54,18 +66,15 @@ export default function BuscaHoteisPage() {
     }
   }
 
+  const handleBuscar = async (e) => {
+    if (e) e.preventDefault()
+    await carregarBusca(filtros, 0)
+  }
+
   const handleLimparFiltros = async () => {
     const limpos = { cidade: '', estrelas: '', adultos: 2, criancas: 0, preco_max: '' }
     setFiltros(limpos)
-    setCarregando(true)
-    try {
-      const data = await buscaService.buscarHoteis(limpos)
-      setHoteis(data.hoteis || [])
-    } catch (err) {
-      setErro(err.response?.data?.detail || 'Erro ao buscar hotéis.')
-    } finally {
-      setCarregando(false)
-    }
+    await carregarBusca(limpos, 0)
   }
 
   return (
@@ -168,7 +177,7 @@ export default function BuscaHoteisPage() {
           <div>
             <h3 className="fw-bold mb-0">Hotéis Disponíveis</h3>
             <small className="text-muted">
-              {hoteis.length} {hoteis.length === 1 ? 'hotel encontrado' : 'hotéis encontrados'} no catálogo
+              {totalHoteis} {totalHoteis === 1 ? 'hotel encontrado' : 'hotéis encontrados'} no catálogo
             </small>
           </div>
         </div>
@@ -255,6 +264,15 @@ export default function BuscaHoteisPage() {
               </div>
             ))}
           </div>
+        )}
+        {!carregando && totalHoteis > 0 && (
+          <PaginationControls
+            offset={offset}
+            limit={PAGE_SIZE}
+            total={totalHoteis}
+            disabled={carregando}
+            onPageChange={(nextOffset) => carregarBusca(filtros, nextOffset)}
+          />
         )}
       </div>
     </div>

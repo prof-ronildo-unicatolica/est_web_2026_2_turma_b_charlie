@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin
 from app.core.database import get_db, get_mongo_db
 from app.models.usuario import Usuario
-from app.schemas.hotel import QuartoCreateSchema, QuartoResponseSchema, QuartoUpdateSchema
+from app.schemas.hotel import (
+    QuartoCreateSchema,
+    QuartoResponseSchema,
+    QuartoUpdateSchema,
+)
+from app.schemas.pagination import PaginatedResponseSchema
 from app.services.catalogo_mongo_service import CatalogoMongoService
 from app.services.hotel_service import (
     CapacidadeInvalidaError,
@@ -55,19 +60,22 @@ async def criar_quarto(
 
 @router.get(
     "/quartos",
-    response_model=List[QuartoResponseSchema],
+    response_model=PaginatedResponseSchema[QuartoResponseSchema],
     summary="[ADMIN] Lista quartos (com filtro opcional por hotel)",
 )
 def listar_quartos(
     hotel_id: Optional[uuid.UUID] = Query(default=None, description="Filtrar por hotel"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _admin: Usuario = Depends(get_current_admin),
 ):
     service = QuartoService(db)
     try:
-        if hotel_id:
-            return service.listar_por_hotel(hotel_id)
-        return service.listar_todos()
+        items, total = service.paginar(
+            hotel_id=hotel_id, limit=limit, offset=offset
+        )
+        return {"items": items, "total": total, "limit": limit, "offset": offset}
     except HotelNaoEncontradoError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # comodidade 
 
 class ComodidadeCreateSchema(BaseModel):
@@ -146,5 +145,7 @@ class CatalogoHotelItemSchema(BaseModel):
 
 class BuscaCatalogoResponseSchema(BaseModel):
     total: int
+    limit: int
+    offset: int
     filtros_aplicados: Dict[str, Any]
     hoteis: List[CatalogoHotelItemSchema]

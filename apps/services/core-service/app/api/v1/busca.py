@@ -25,11 +25,13 @@ async def buscar_hoteis_catalogo(
     preco_max: Optional[float] = Query(default=None, gt=0, description="Preço máximo da diária"),
     lat: Optional[float] = Query(default=None, description="Latitude para filtro territorial (RFO05)"),
     lng: Optional[float] = Query(default=None, description="Longitude para filtro territorial (RFO05)"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ):
     service = CatalogoMongoService(mongo_db, db)
-    docs = await service.buscar(
+    docs, total = await service.buscar(
         cidade=cidade,
         cidade_id=cidade_id,
         estrelas=estrelas,
@@ -38,8 +40,9 @@ async def buscar_hoteis_catalogo(
         preco_max=preco_max,
         lat=lat,
         lng=lng,
+        limit=limit,
+        offset=offset,
     )
-
     itens = [
         CatalogoHotelItemSchema(
             hotel_id=doc["hotel_id"],
@@ -67,7 +70,9 @@ async def buscar_hoteis_catalogo(
     }
 
     return BuscaCatalogoResponseSchema(
-        total=len(itens),
+        total=total,
+        limit=limit,
+        offset=offset,
         filtros_aplicados=filtros,
         hoteis=itens,
     )

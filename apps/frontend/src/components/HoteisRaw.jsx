@@ -21,7 +21,7 @@ export default function HoteisRaw() {
       })
       .then(([jsonCidades, jsonHoteis]) => {
         setCidades(jsonCidades)
-        setHoteis(jsonHoteis)
+        setHoteis(jsonHoteis.items)
       })
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false))
