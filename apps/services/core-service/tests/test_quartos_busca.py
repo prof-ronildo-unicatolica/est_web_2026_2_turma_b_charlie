@@ -1,6 +1,7 @@
 import uuid
 
-from app.core.security import create_access_token
+from app.core.security import create_access_token, hash_password
+from app.repositories.usuario_repository import UsuarioRepository
 from app.models.hotel import Cidade, Hotel, Quarto
 from app.models.usuario import Usuario
 
@@ -8,22 +9,33 @@ BASE_ADM = "/api/v1/admin"
 BASE_PUB = "/api/v1"
 
 
-def _admin_header():
-    token = create_access_token(sub="admin@hotel.com", is_admin=True)
+def _auth_header(db_session, email, is_admin):
+    repo = UsuarioRepository(db_session)
+    if not repo.get_by_email(email):
+        repo.create(
+            nome="Admin Teste" if is_admin else "Cliente Teste",
+            email=email,
+            senha_hash=hash_password("senha-de-teste-123"),
+            is_admin=is_admin,
+        )
+    token = create_access_token(sub=email, is_admin=is_admin)
     return {"Authorization": f"Bearer {token}"}
 
 
-def _cliente_header():
-    token = create_access_token(sub="cliente@hotel.com", is_admin=False)
-    return {"Authorization": f"Bearer {token}"}
+def _admin_header(db_session):
+    return _auth_header(db_session, "admin@hotel.com", is_admin=True)
 
 
-def _setup_hotel(client):
+def _cliente_header(db_session):
+    return _auth_header(db_session, "cliente@hotel.com", is_admin=False)
+
+
+def _setup_hotel(client, db_session):
     """Cria uma cidade e um hotel para apoiar os testes."""
     cidade_resp = client.post(
         f"{BASE_ADM}/cidades",
         json={"nome": f"Cidade Teste {uuid.uuid4().hex[:6]}"},
-        headers=_admin_header(),
+        headers=_admin_header(db_session),
     )
     cidade_id = cidade_resp.json()["id"]
 
@@ -34,14 +46,14 @@ def _setup_hotel(client):
             "cidade_id": cidade_id,
             "categoria_estrelas": 4,
         },
-        headers=_admin_header(),
+        headers=_admin_header(db_session),
     )
     return hotel_resp.json()["id"]
 
 
 
 def test_cliente_nao_pode_criar_quarto(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     resp = client.post(
         f"{BASE_ADM}/quartos",
         json={
@@ -50,7 +62,7 @@ def test_cliente_nao_pode_criar_quarto(client, db_session):
             "tipo": "Standard",
             "preco_diaria": 150.0,
         },
-        headers=_cliente_header(),
+        headers=_cliente_header(db_session),
     )
     assert resp.status_code == 403
 
@@ -62,7 +74,7 @@ def test_sem_token_nao_pode_listar_quartos_admin(client, db_session):
 
 
 def test_admin_cria_quarto_com_sucesso(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     payload = {
         "hotel_id": hotel_id,
         "numero": "202",
@@ -73,7 +85,7 @@ def test_admin_cria_quarto_com_sucesso(client, db_session):
         "descricao": "Quarto amplo com ar e frigobar",
         "ativo": True,
     }
-    resp = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header())
+    resp = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header(db_session))
     assert resp.status_code == 201
     data = resp.json()
     assert data["numero"] == "202"
@@ -83,22 +95,22 @@ def test_admin_cria_quarto_com_sucesso(client, db_session):
 
 
 def test_numero_quarto_duplicado_retorna_409(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     payload = {
         "hotel_id": hotel_id,
         "numero": "301",
         "tipo": "Standard",
         "preco_diaria": 190.0,
     }
-    r1 = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header())
+    r1 = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header(db_session))
     assert r1.status_code == 201
 
-    r2 = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header())
+    r2 = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header(db_session))
     assert r2.status_code == 409
 
 
 def test_capacidade_invalida_retorna_400(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     payload = {
         "hotel_id": hotel_id,
         "numero": "401",
@@ -106,22 +118,22 @@ def test_capacidade_invalida_retorna_400(client, db_session):
         "preco_diaria": 190.0,
         "max_adultos": 0,  # Inválido
     }
-    resp = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header())
+    resp = client.post(f"{BASE_ADM}/quartos", json=payload, headers=_admin_header(db_session))
     assert resp.status_code in [400, 422]
 
 
 def test_atualizar_quarto(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     q_id = client.post(
         f"{BASE_ADM}/quartos",
         json={"hotel_id": hotel_id, "numero": "501", "tipo": "Standard", "preco_diaria": 200.0},
-        headers=_admin_header(),
+        headers=_admin_header(db_session),
     ).json()["id"]
 
     resp = client.put(
         f"{BASE_ADM}/quartos/{q_id}",
         json={"preco_diaria": 250.0, "tipo": "Standard Superior"},
-        headers=_admin_header(),
+        headers=_admin_header(db_session),
     )
     assert resp.status_code == 200
     assert resp.json()["preco_diaria"] == 250.0
@@ -129,24 +141,24 @@ def test_atualizar_quarto(client, db_session):
 
 
 def test_remover_quarto(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     q_id = client.post(
         f"{BASE_ADM}/quartos",
         json={"hotel_id": hotel_id, "numero": "601", "tipo": "Simples", "preco_diaria": 100.0},
-        headers=_admin_header(),
+        headers=_admin_header(db_session),
     ).json()["id"]
 
-    del_resp = client.delete(f"{BASE_ADM}/quartos/{q_id}", headers=_admin_header())
+    del_resp = client.delete(f"{BASE_ADM}/quartos/{q_id}", headers=_admin_header(db_session))
     assert del_resp.status_code == 204
 
 
 
 def test_detalhes_hotel_com_quartos(client, db_session):
-    hotel_id = _setup_hotel(client)
+    hotel_id = _setup_hotel(client, db_session)
     client.post(
         f"{BASE_ADM}/quartos",
         json={"hotel_id": hotel_id, "numero": "701", "tipo": "Suíte Master", "preco_diaria": 500.0, "max_adultos": 3},
-        headers=_admin_header(),
+        headers=_admin_header(db_session),
     )
 
     resp = client.get(f"{BASE_PUB}/hoteis/{hotel_id}")

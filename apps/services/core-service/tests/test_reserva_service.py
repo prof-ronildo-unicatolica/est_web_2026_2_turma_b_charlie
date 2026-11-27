@@ -476,27 +476,25 @@ def test_arredondamento_decimal_temporada(cenario):
     assert resultado.valor_total == 2.68
 
 
-def test_criar_tarifa_temporada_datas_invalidas_lanca_erro(db_session, setup_cenario):
-    service = ReservaService(db_session)
-    hotel = setup_cenario["hotel"]
-    
+def test_criar_tarifa_temporada_datas_invalidas_lanca_erro(cenario):
+    service, quarto = cenario
+
     payload = TarifaTemporadaCreateSchema(
-        hotel_id=hotel.id,
+        hotel_id=quarto.hotel_id,
         nome="Alta Temporada Inválida",
         data_inicio=date(2026, 12, 20),
-        data_fim=date(2026, 12, 10),  
+        data_fim=date(2026, 12, 10),
         multiplicador=1.5,
     )
     with pytest.raises(DatasInvalidasError):
         service.criar_tarifa_temporada(payload)
 
 
-def test_crud_servico_adicional_sucesso(db_session, setup_cenario):
-    service = ReservaService(db_session)
-    hotel = setup_cenario["hotel"]
+def test_crud_servico_adicional_sucesso(cenario):
+    service, quarto = cenario
 
     payload = ServicoAdicionalCreateSchema(
-        hotel_id=hotel.id,
+        hotel_id=quarto.hotel_id,
         nome="Aluguel de Bike",
         preco=25.0,
         por_diaria=True,
@@ -509,18 +507,16 @@ def test_crud_servico_adicional_sucesso(db_session, setup_cenario):
     assert serv_buscado.preco == 25.0
 
     service.remover_servico_adicional(serv.id)
-    from app.services.reserva_service import RecursoNaoEncontradoError
+
     with pytest.raises(RecursoNaoEncontradoError):
         service.obter_servico_adicional(serv.id)
 
 
-def test_cotacao_quarto_inativo_lanca_erro(db_session, setup_cenario):
-    service = ReservaService(db_session)
-    quarto = setup_cenario["quarto"]
+def test_cotacao_quarto_inativo_lanca_erro(cenario):
+    service, quarto = cenario
     quarto.ativo = False
-    db_session.commit()
+    service.db.commit()
 
-    from app.services.reserva_service import RecursoNaoEncontradoError
     req = CotacaoRequestSchema(
         quarto_id=quarto.id,
         checkin=date(2026, 11, 1),
