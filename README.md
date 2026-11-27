@@ -24,12 +24,20 @@ Para colocar tudo no ar:
 git clone <url-ssh-deste-repositorio>
 cd <pasta-do-repositorio>
 
-# 2. Suba a stack completa (a primeira vez demora alguns minutos)
+# 2. Opcional: copie apps/services/core-service/env_example para .env
+#    e defina senhas locais e uma chave JWT própria.
+
+# 3. Suba a stack completa (a primeira vez demora alguns minutos)
 docker compose up -d --build
 
-# 3. Confirme que a API respondeu
+# 4. Confirme que a API respondeu
 curl http://localhost:8000/health
 ```
+
+O Compose usa credenciais padrão somente para desenvolvimento local. Para outros
+ambientes, configure `APP_ENV`, `SECRET_KEY`, as senhas dos bancos e
+`CORS_ALLOWED_ORIGINS` no `.env`; a API rejeita as credenciais de desenvolvimento
+quando `APP_ENV` não é `development`. Mantenha o `.env` fora do Git.
 
 | Serviço | Endereço |
 | :--- | :--- |
