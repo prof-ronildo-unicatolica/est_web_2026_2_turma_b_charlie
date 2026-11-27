@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.hotel import Cidade, Hotel, Quarto
+from app.models.hotel import Hotel, Quarto
 from app.models.reserva import Reserva
 
 
@@ -76,9 +76,34 @@ class ReservaRepository:
                 .joinedload(Hotel.cidade)
             )
             .filter(Reserva.usuario_id == usuario_id)
-            .order_by(Reserva.criado_em.desc())
+            .order_by(Reserva.criado_em.desc(), Reserva.id.desc())
             .all()
         )
+
+    def paginate_by_usuario_id(
+        self,
+        usuario_id: uuid.UUID,
+        offset: int,
+        limit: int,
+        status: Optional[str] = None,
+    ) -> tuple[List[Reserva], int]:
+        query = self.db.query(Reserva).filter(Reserva.usuario_id == usuario_id)
+        if status is not None:
+            query = query.filter(Reserva.status == status)
+
+        total = query.count()
+        items = (
+            query.options(
+                joinedload(Reserva.quarto)
+                .joinedload(Quarto.hotel)
+                .joinedload(Hotel.cidade)
+            )
+            .order_by(Reserva.criado_em.desc(), Reserva.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return items, total
 
     def cancelar_reserva(
         self,

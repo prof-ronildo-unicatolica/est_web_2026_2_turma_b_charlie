@@ -1,25 +1,39 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { cidadeService, hotelService } from '../../services/catalogo'
+import PaginationControls from '../../components/PaginationControls'
+
+const PAGE_SIZE = 20
 
 export default function AdminHoteisPage() {
   const [hoteis, setHoteis] = useState([])
+  const [offset, setOffset] = useState(0)
+  const [total, setTotal] = useState(0)
   const [cidades, setCidades] = useState([])
   const [editando, setEditando] = useState(null)
   const [form, setForm] = useState({ nome: '', cidade_id: '', categoria_estrelas: '' })
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
 
-  const carregar = async () => {
+  const carregar = useCallback(async (pageOffset = offset) => {
     try {
-      const [h, c] = await Promise.all([hotelService.listar(), cidadeService.listar()])
-      setHoteis(h)
+      const [h, c] = await Promise.all([
+        hotelService.listar(null, { limit: PAGE_SIZE, offset: pageOffset }),
+        cidadeService.listar(),
+      ])
+      if (h.items.length === 0 && pageOffset > 0) {
+        await carregar(Math.max(0, pageOffset - PAGE_SIZE))
+        return
+      }
+      setHoteis(h.items)
+      setTotal(h.total)
+      setOffset(h.offset)
       setCidades(c)
     } catch {
       setErro('Erro ao carregar hotéis e cidades.')
     }
-  }
+  }, [offset])
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [carregar])
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -151,6 +165,12 @@ export default function AdminHoteisPage() {
           ))}
         </tbody>
       </table>
+      <PaginationControls
+        offset={offset}
+        limit={PAGE_SIZE}
+        total={total}
+        onPageChange={carregar}
+      />
     </div>
   )
 }

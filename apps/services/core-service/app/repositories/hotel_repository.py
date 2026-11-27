@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.hotel import Cidade, Comodidade, Hotel, Quarto
 
 
-
 class ComodidadeRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -101,15 +100,33 @@ class HotelRepository:
         return self.get_by_id(hotel.id)
 
     def list(self) -> List[Hotel]:
-        return self._query_com_relacoes().order_by(Hotel.nome).all()
+        return self._query_com_relacoes().order_by(Hotel.nome, Hotel.id).all()
 
     def list_by_cidade(self, cidade_id: uuid.UUID) -> List[Hotel]:
         return (
             self._query_com_relacoes()
             .filter(Hotel.cidade_id == cidade_id)
-            .order_by(Hotel.nome)
+            .order_by(Hotel.nome, Hotel.id)
             .all()
         )
+
+    def paginate(
+        self, offset: int, limit: int, cidade_id: uuid.UUID | None = None
+    ) -> tuple[List[Hotel], int]:
+        count_query = self.db.query(Hotel.id)
+        items_query = self._query_com_relacoes()
+        if cidade_id is not None:
+            count_query = count_query.filter(Hotel.cidade_id == cidade_id)
+            items_query = items_query.filter(Hotel.cidade_id == cidade_id)
+
+        total = count_query.count()
+        items = (
+            items_query.order_by(Hotel.nome, Hotel.id)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return items, total
 
     def get_by_id(self, hotel_id: uuid.UUID) -> Optional[Hotel]:
         return (
@@ -189,12 +206,28 @@ class QuartoRepository:
         return (
             self.db.query(Quarto)
             .filter(Quarto.hotel_id == hotel_id)
-            .order_by(Quarto.numero)
+            .order_by(Quarto.numero, Quarto.id)
             .all()
         )
 
     def list_all(self) -> List[Quarto]:
-        return self.db.query(Quarto).order_by(Quarto.numero).all()
+        return self.db.query(Quarto).order_by(Quarto.numero, Quarto.id).all()
+
+    def paginate(
+        self, offset: int, limit: int, hotel_id: uuid.UUID | None = None
+    ) -> tuple[List[Quarto], int]:
+        query = self.db.query(Quarto)
+        if hotel_id is not None:
+            query = query.filter(Quarto.hotel_id == hotel_id)
+
+        total = query.count()
+        items = (
+            query.order_by(Quarto.numero, Quarto.id)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return items, total
 
     def update(self, quarto: Quarto, dados: dict) -> Quarto:
         for campo, valor in dados.items():
