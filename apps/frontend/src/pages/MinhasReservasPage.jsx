@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import PaginationControls from '../components/PaginationControls'
-import { reservaService } from '../services/catalogo'
+import { avaliacaoService, reservaService } from '../services/catalogo'
 
 const PAGE_SIZE = 20
 
@@ -21,6 +21,11 @@ export default function MinhasReservasPage() {
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
   const [cancelando, setCancelando] = useState(false)
   const [carregandoPreview, setCarregandoPreview] = useState(false)
+  const [reservaParaAvaliar, setReservaParaAvaliar] = useState(null)
+  const [notaSelecionada, setNotaSelecionada] = useState(5)
+  const [comentarioAvaliacao, setComentarioAvaliacao] = useState('')
+  const [enviandoAvaliacao, setEnviandoAvaliacao] = useState(false)
+  const [avaliacoesFeitas, setAvaliacoesFeitas] = useState({})
 
   const token = localStorage.getItem('access_token')
 
@@ -117,6 +122,28 @@ export default function MinhasReservasPage() {
     }
   }
 
+  const handleSubmeterAvaliacao = async (e) => {
+    e.preventDefault()
+    if (!reservaParaAvaliar) return
+    setEnviandoAvaliacao(true)
+    try {
+      const resp = await avaliacaoService.criar({
+        reserva_id: reservaParaAvaliar.id,
+        nota: Number(notaSelecionada),
+        comentario: comentarioAvaliacao.trim() || null,
+      })
+      setSucessoMsg('Avaliação enviada com sucesso! Obrigado pelo seu feedback.')
+      setAvaliacoesFeitas((prev) => ({ ...prev, [reservaParaAvaliar.id]: resp }))
+      setReservaParaAvaliar(null)
+      setComentarioAvaliacao('')
+      setNotaSelecionada(5)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Erro ao submeter avaliação.')
+    } finally {
+      setEnviandoAvaliacao(false)
+    }
+  }
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Confirmada':
@@ -150,7 +177,7 @@ export default function MinhasReservasPage() {
         <div>
           <h2 className="fw-bold text-dark mb-1">🛎️ Minhas Reservas</h2>
           <p className="text-muted mb-0">
-            Acompanhe suas viagens, vouchers e gerencie solicitações de cancelamento com política transparente.
+            Acompanhe suas viagens, vouchers e avalie estadias concluídas.
           </p>
         </div>
         <div className="d-flex gap-2">
@@ -253,6 +280,10 @@ export default function MinhasReservasPage() {
                 })
               : ''
 
+            const hojeStr = new Date().toISOString().split('T')[0]
+            const estadiaConcluida = r.status === 'Confirmada' && r.checkout < hojeStr
+            const jaAvaliada = !!avaliacoesFeitas[r.id]
+
             return (
               <div className="col-lg-6" key={r.id}>
                 <div className="card h-100 border-0 shadow-sm bg-white overflow-hidden">
@@ -342,6 +373,7 @@ export default function MinhasReservasPage() {
                       </div>
 
                       <div className="d-flex gap-2">
+                        {/* Botão de cancelamento */}
                         {r.pode_cancelar && (
                           <button
                             className="btn btn-outline-danger btn-sm px-3 fw-semibold"
@@ -350,6 +382,24 @@ export default function MinhasReservasPage() {
                             🚫 Cancelar Reserva
                           </button>
                         )}
+
+                        {/* Badge de avaliação */}
+                        {estadiaConcluida && (
+                          jaAvaliada ? (
+                            <span className="badge bg-warning-subtle text-dark border border-warning px-2 py-2 d-inline-flex align-items-center gap-1">
+                              ⭐ Avaliada ({avaliacoesFeitas[r.id].nota}/5)
+                            </span>
+                          ) : (
+                            <button
+                              className="btn btn-warning btn-sm px-3 fw-bold text-dark d-inline-flex align-items-center gap-1 shadow-sm"
+                              onClick={() => setReservaParaAvaliar(r)}
+                            >
+                              ⭐ Avaliar Estadia
+                            </button>
+                          )
+                        )}
+
+                        {/* Botão de Voucher */}
                         <button
                           className="btn btn-outline-primary btn-sm px-3 fw-semibold"
                           onClick={() => abrirVoucher(r.id)}
@@ -605,6 +655,97 @@ export default function MinhasReservasPage() {
                   🖨️ Imprimir
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de avaliação de estadia */}
+      {reservaParaAvaliar && (
+        <div
+          className="modal fade show d-block"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          tabIndex="-1"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header bg-warning text-dark">
+                <h5 className="modal-title fw-bold">⭐ Avaliar sua Estadia</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setReservaParaAvaliar(null)}
+                  disabled={enviandoAvaliacao}
+                />
+              </div>
+
+              <form onSubmit={handleSubmeterAvaliacao}>
+                <div className="modal-body p-4">
+                  <h5 className="fw-bold mb-1">{reservaParaAvaliar.hotel_nome}</h5>
+                  <p className="text-muted small mb-3">
+                    Estadia finalizada em{' '}
+                    {new Date(reservaParaAvaliar.checkout + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </p>
+
+                  {/* Seletor de estrelas */}
+                  <div className="text-center my-3 p-3 bg-light rounded">
+                    <label className="form-label d-block text-secondary small fw-bold text-uppercase">
+                      Como foi sua experiência geral?
+                    </label>
+                    <div className="d-flex justify-content-center gap-2">
+                      {[1, 2, 3, 4, 5].map((estrela) => (
+                        <button
+                          key={estrela}
+                          type="button"
+                          className="btn btn-link p-0 text-decoration-none"
+                          style={{
+                            fontSize: '2.5rem',
+                            color: estrela <= notaSelecionada ? '#ffc107' : '#e4e5e7',
+                          }}
+                          onClick={() => setNotaSelecionada(estrela)}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    <span className="badge bg-dark mt-2 fs-6">{notaSelecionada} de 5 Estrelas</span>
+                  </div>
+
+                  {/* Campo de comentário */}
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">
+                      Deixe seu depoimento sobre acomodação, atendimento e serviços:
+                    </label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      placeholder="Ex: Quarto aconchegante, café da manhã maravilhoso e funcionários atenciosos..."
+                      value={comentarioAvaliacao}
+                      onChange={(e) => setComentarioAvaliacao(e.target.value)}
+                      maxLength={1000}
+                    />
+                    <small className="text-muted text-end d-block mt-1">Máx. 1000 caracteres</small>
+                  </div>
+                </div>
+
+                <div className="modal-footer bg-light">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setReservaParaAvaliar(null)}
+                    disabled={enviandoAvaliacao}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-warning btn-sm px-4 fw-bold text-dark"
+                    disabled={enviandoAvaliacao}
+                  >
+                    {enviandoAvaliacao ? 'Enviando Avaliação...' : 'Publicar Avaliação'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

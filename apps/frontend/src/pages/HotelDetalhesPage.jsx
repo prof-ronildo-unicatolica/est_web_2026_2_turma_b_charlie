@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { hotelService } from '../services/catalogo'
+import { avaliacaoService, hotelService } from '../services/catalogo'
 
 export default function HotelDetalhesPage() {
-  const navigate = useNavigate()
   const { id } = useParams()
+  const navigate = useNavigate()
   const [hotel, setHotel] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
+  const [avaliacoes, setAvaliacoes] = useState([])
+  const [resumoAvaliacoes, setResumoAvaliacoes] = useState({ media: 0.0, total_avaliacoes: 0 })
 
   useEffect(() => {
     const carregar = async () => {
       try {
         setCarregando(true)
-        const data = await hotelService.obterPorId(id)
-        setHotel(data)
+        const [hotelData, avalsData, resumoData] = await Promise.all([
+          hotelService.obterPorId(id),
+          avaliacaoService.listarPorHotel(id).catch(() => []),
+          avaliacaoService.obterResumoHotel(id).catch(() => ({ media: 0.0, total_avaliacoes: 0 })),
+        ])
+        setHotel(hotelData)
+        setAvaliacoes(avalsData)
+        setResumoAvaliacoes(resumoData)
       } catch (err) {
         setErro(err.response?.data?.detail || 'Erro ao carregar detalhes do hotel.')
       } finally {
@@ -68,7 +76,15 @@ export default function HotelDetalhesPage() {
                   {'★'.repeat(hotel.categoria_estrelas)}
                 </span>
               )}
+              {resumoAvaliacoes.total_avaliacoes > 0 ? (
+                <span className="badge bg-warning text-dark fs-6 d-inline-flex align-items-center gap-1">
+                  ⭐ {resumoAvaliacoes.media.toFixed(1)} / 5.0 ({resumoAvaliacoes.total_avaliacoes} avaliações)
+                </span>
+              ) : (
+                <span className="badge bg-light text-muted border small">Sem avaliações ainda</span>
+              )}
             </div>
+
             <h1 className="fw-bold display-6 mb-2">{hotel.nome}</h1>
             <p className="text-muted mb-3">
               📍 Localização privilegiada em {hotel.cidade?.nome}. Conforto, segurança e atendimento exclusivo.
@@ -152,6 +168,49 @@ export default function HotelDetalhesPage() {
           ))}
         </div>
       )}
+
+      <div className="mt-5 pt-4 border-top">
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h3 className="fw-bold mb-1">Avaliações e Opiniões de Hóspedes</h3>
+            <p className="text-muted mb-0">Comentários verificados de clientes que se hospedaram neste hotel</p>
+          </div>
+          {resumoAvaliacoes.total_avaliacoes > 0 && (
+            <div className="text-end">
+              <div className="fs-3 fw-bold text-dark">⭐ {resumoAvaliacoes.media.toFixed(1)}</div>
+              <small className="text-muted">{resumoAvaliacoes.total_avaliacoes} hóspedes avaliaram</small>
+            </div>
+          )}
+        </div>
+
+        {avaliacoes.length === 0 ? (
+          <div className="alert alert-light border text-muted py-4 text-center">
+            Este hotel ainda não recebeu avaliações. Seja o primeiro a se hospedar e deixar sua opinião!
+          </div>
+        ) : (
+          <div className="row g-3">
+            {avaliacoes.map((av) => (
+              <div className="col-md-6" key={av.id}>
+                <div className="card h-100 border-0 shadow-sm bg-white p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="fw-bold text-dark">{av.autor?.nome || 'Hóspede Anônimo'}</span>
+                    <span className="text-warning fw-bold">
+                      {'★'.repeat(av.nota)}{'☆'.repeat(5 - av.nota)}
+                    </span>
+                  </div>
+                  <p className="text-muted small mb-2">
+                    {av.comentario || 'Estadia excelente sem comentários adicionais.'}
+                  </p>
+                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    Avaliado em {new Date(av.criado_em).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
