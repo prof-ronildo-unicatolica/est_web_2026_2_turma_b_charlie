@@ -88,3 +88,10 @@ export const reservaService = {
   obterPreviewCancelamento: (id) => api.get(`/reservas/${id}/cancelamento-preview`).then((r) => r.data),
   cancelar: (id, payload = {}) => api.post(`/reservas/${id}/cancelar`, payload).then((r) => r.data),
 }
+
+export const avaliacaoService = {
+  criar: (payload) => api.post('/avaliacoes', payload).then((r) => r.data),
+  listarPorHotel: (hotelId) => api.get(`/avaliacoes/hotel/${hotelId}`).then((r) => r.data),
+  obterResumoHotel: (hotelId) => api.get(`/avaliacoes/hotel/${hotelId}/resumo`).then((r) => r.data),
+  obterPorReserva: (reservaId) => api.get(`/avaliacoes/reserva/${reservaId}`).then((r) => r.data),
+}

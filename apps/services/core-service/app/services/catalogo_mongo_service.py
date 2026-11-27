@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.hotel import Hotel
 from app.repositories.hotel_repository import HotelRepository
+from app.repositories.avaliacao_repository import AvaliacaoRepository
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,9 @@ class CatalogoMongoService:
         precos = [q.preco_diaria for q in quartos_ativos]
         preco_minimo = min(precos) if precos else 0.0
 
+        avaliacao_repo = AvaliacaoRepository(self.db)
+        media_aval, total_aval = avaliacao_repo.calcular_estatisticas_hotel(hotel.id)
+
         max_adultos = max([q.max_adultos for q in quartos_ativos]) if quartos_ativos else 0
         max_criancas = max([q.max_criancas for q in quartos_ativos]) if quartos_ativos else 0
 
@@ -59,6 +63,8 @@ class CatalogoMongoService:
             "hotel_id": str(hotel.id),
             "nome": hotel.nome,
             "categoria_estrelas": hotel.categoria_estrelas,
+            "media_avaliacoes": media_aval,
+            "total_avaliacoes": total_aval,
             "cidade": {
                 "id": str(hotel.cidade.id),
                 "nome": hotel.cidade.nome,
