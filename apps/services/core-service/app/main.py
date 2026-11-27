@@ -10,15 +10,15 @@ from app.api.v1.admin_quartos import router as admin_quartos_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.busca import router as busca_router
 from app.api.v1.cidades import router as cidades_router
+from app.api.v1.cotacao import router as cotacao_router
 from app.api.v1.health import router as health_router
 from app.api.v1.hoteis import router as hoteis_router
+from app.api.v1.reservas import router as reservas_router
 from app.api.v1.sobre import router as sobre_router
 from app.core.config import settings
 from app.core.database import SessionLocal, get_mongo_db
 from app.core.seed_mongo import seed_mongo_users
 from app.services.catalogo_mongo_service import CatalogoMongoService
-from app.api.v1.cotacao import router as cotacao_router
-from app.api.v1.reservas import router as reservas_router
 from app.api.v1.avaliacoes import router as avaliacoes_router
 
 
@@ -45,7 +45,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

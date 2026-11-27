@@ -14,7 +14,6 @@ from app.repositories.hotel_repository import (
 from app.services.catalogo_mongo_service import CatalogoMongoService
 
 
-
 class RegraDeNegocioError(Exception):
     """Base para erros de negócio do domínio."""
 
@@ -159,6 +158,13 @@ class HotelService:
             return self.repository.list_by_cidade(cidade_id)
         return self.repository.list()
 
+    def paginar(
+        self, offset: int, limit: int, cidade_id: uuid.UUID | None = None
+    ) -> tuple[List[Hotel], int]:
+        if cidade_id is not None and not self.cidades.get_by_id(cidade_id):
+            raise CidadeNaoEncontradaError(f"Não existe cidade com id '{cidade_id}'.")
+        return self.repository.paginate(offset, limit, cidade_id)
+
     def buscar_por_id(self, hotel_id: uuid.UUID) -> Hotel:
         hotel = self.repository.get_by_id(hotel_id)
         if not hotel:
@@ -269,6 +275,13 @@ class QuartoService:
 
     def listar_todos(self) -> List[Quarto]:
         return self.repo.list_all()
+
+    def paginar(
+        self, offset: int, limit: int, hotel_id: uuid.UUID | None = None
+    ) -> tuple[List[Quarto], int]:
+        if hotel_id is not None and not self.hotel_repo.get_by_id(hotel_id):
+            raise HotelNaoEncontradoError(f"Não existe hotel com id '{hotel_id}'.")
+        return self.repo.paginate(offset, limit, hotel_id)
 
     def buscar_por_id(self, quarto_id: uuid.UUID) -> Quarto:
         quarto = self.repo.get_by_id(quarto_id)

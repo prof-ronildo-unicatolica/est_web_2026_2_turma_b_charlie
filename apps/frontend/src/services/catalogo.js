@@ -9,8 +9,9 @@ export const cidadeService = {
 
 
 export const hotelService = {
-  listar: (cidadeId = null) => {
-    const params = cidadeId ? { cidade_id: cidadeId } : {}
+  listar: (cidadeId = null, pagination = {}) => {
+    const params = { ...pagination }
+    if (cidadeId) params.cidade_id = cidadeId
     return api.get('/hoteis', { params }).then(r => r.data)
   },
   obterPorId: (id)          => api.get(`/hoteis/${id}`).then(r => r.data),
@@ -33,8 +34,9 @@ export const comodidadeService = {
 
 
 export const quartoService = {
-  listar: (hotelId = null) => {
-    const params = hotelId ? { hotel_id: hotelId } : {}
+  listar: (hotelId = null, pagination = {}) => {
+    const params = { ...pagination }
+    if (hotelId) params.hotel_id = hotelId
     return api.get('/admin/quartos', { params }).then(r => r.data)
   },
   obterPorId: (id)          => api.get(`/admin/quartos/${id}`).then(r => r.data),
@@ -80,7 +82,7 @@ export const tarifaTemporadaService = {
 
 export const reservaService = {
   criar: (payload) => api.post('/reservas', payload).then(r => r.data),
-  listarMinhasReservas: () => api.get('/reservas').then((r) => r.data),
+  listarMinhasReservas: (pagination = {}) => api.get('/reservas', { params: pagination }).then((r) => r.data),
   consultarStatus: (id) => api.get(`/reservas/${id}`).then(r => r.data),
   obterPorId: (id) => api.get(`/reservas/${id}`).then((r) => r.data),
   obterPreviewCancelamento: (id) => api.get(`/reservas/${id}/cancelamento-preview`).then((r) => r.data),

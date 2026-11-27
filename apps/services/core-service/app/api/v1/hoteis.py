@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from app.schemas.hotel import (
     HotelDetalhesResponseSchema,
     HotelResponseSchema,
 )
+from app.schemas.pagination import PaginatedResponseSchema
 from app.services.hotel_service import (
     CidadeNaoEncontradaError,
     HotelNaoEncontradoError,
@@ -42,17 +43,22 @@ def criar_hotel(
 
 @router.get(
     "",
-    response_model=List[HotelResponseSchema],
+    response_model=PaginatedResponseSchema[HotelResponseSchema],
     summary="Lista os hotéis com cidade aninhada e comodidades",
 )
 def listar_hoteis(
     cidade_id: Optional[uuid.UUID] = Query(
         default=None, description="Filtra os hotéis por cidade"
     ),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
     try:
-        return HotelService(db).listar(cidade_id=cidade_id)
+        items, total = HotelService(db).paginar(
+            cidade_id=cidade_id, limit=limit, offset=offset
+        )
+        return {"items": items, "total": total, "limit": limit, "offset": offset}
     except CidadeNaoEncontradaError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

@@ -1,8 +1,8 @@
 import uuid
 from datetime import date
-from typing import List
+from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -11,14 +11,15 @@ from app.core.rabbitmq import publish_event
 from app.models.hotel import Quarto
 from app.models.usuario import Usuario
 from app.repositories.reserva_repository import ReservaRepository
+from app.schemas.pagination import PaginatedResponseSchema
 from app.schemas.reserva import (
+    CancelamentoPreviewResponseSchema,
+    CancelamentoRequestSchema,
+    CancelamentoResponseSchema,
     ReservaAceitaSchema,
     ReservaCreateSchema,
     ReservaDetalheSchema,
     ReservaListItemSchema,
-    CancelamentoPreviewResponseSchema,
-    CancelamentoRequestSchema,
-    CancelamentoResponseSchema,
 )
 from app.services.cancelamento_service import CancelamentoService
 
@@ -29,10 +30,15 @@ FILA_SOLICITACOES = "solicitacoes-reserva"
 
 @router.get(
     "/reservas",
-    response_model=List[ReservaListItemSchema],
+    response_model=PaginatedResponseSchema[ReservaListItemSchema],
     summary="Lista todas as reservas do hóspede logado",
 )
 def listar_minhas_reservas(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status_reserva: Optional[Literal["Confirmada", "Pendente", "Cancelada"]] = Query(
+        default=None, alias="status"
+    ),
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(get_current_user),
 ):
@@ -41,7 +47,9 @@ def listar_minhas_reservas(
     ordenado pela mais recente, com informações de hotel e quarto para exibição em cards
     """
     repo = ReservaRepository(db)
-    reservas = repo.list_by_usuario_id(usuario_atual.id)
+    reservas, total = repo.paginate_by_usuario_id(
+        usuario_atual.id, offset, limit, status_reserva
+    )
 
     itens = []
     for r in reservas:
@@ -83,7 +91,7 @@ def listar_minhas_reservas(
                 quarto_tipo=quarto_tipo,
             )
         )
-    return itens
+    return {"items": itens, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post(

@@ -155,7 +155,8 @@ def test_associar_comodidade_ao_hotel(client, db_session):
 def test_listagem_publica_hoteis_sem_token(client, db_session):
     resp = client.get(f"{BASE_PUB}/hoteis")
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    assert isinstance(resp.json()["items"], list)
+    assert {"total", "limit", "offset"} <= resp.json().keys()
 
 
 def test_listagem_publica_cidades_sem_token(client, db_session):
@@ -172,5 +173,36 @@ def test_dod_admin_cadastra_hotel_aparece_na_listagem_publica(client, db_session
         headers=_admin_header(db_session),
     )
     resp = client.get(f"{BASE_PUB}/hoteis")
-    nomes = [h["nome"] for h in resp.json()]
+    nomes = [h["nome"] for h in resp.json()["items"]]
     assert "Hotel Madeira" in nomes
+
+
+def test_listagem_publica_hoteis_pagina_com_ordem_estavel(client, db_session):
+    cidade_id = _criar_cidade(client, db_session, "Cidade Paginada")
+    for nome in ("Hotel C", "Hotel A", "Hotel B"):
+        client.post(
+            f"{BASE_ADM}/hoteis",
+            json={"nome": nome, "cidade_id": cidade_id},
+            headers=_admin_header(db_session),
+        )
+
+    primeira = client.get(f"{BASE_PUB}/hoteis?limit=2&offset=0").json()
+    segunda = client.get(f"{BASE_PUB}/hoteis?limit=2&offset=2").json()
+
+    assert primeira["total"] == 3
+    assert [hotel["nome"] for hotel in primeira["items"]] == ["Hotel A", "Hotel B"]
+    assert [hotel["nome"] for hotel in segunda["items"]] == ["Hotel C"]
+
+
+def test_listagem_publica_hoteis_rejeita_limite_acima_do_maximo(client, db_session):
+    response = client.get(f"{BASE_PUB}/hoteis?limit=101")
+
+    assert response.status_code == 422
+
+
+def test_listagem_publica_hoteis_pagina_vazia_mantem_total(client, db_session):
+    response = client.get(f"{BASE_PUB}/hoteis?limit=10&offset=100")
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["total"] == 0

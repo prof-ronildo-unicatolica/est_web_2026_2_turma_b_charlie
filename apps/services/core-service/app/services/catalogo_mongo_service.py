@@ -124,7 +124,9 @@ class CatalogoMongoService:
         preco_max: Optional[float] = None,
         lat: Optional[float] = None,
         lng: Optional[float] = None,
-    ) -> List[Dict[str, Any]]:
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[List[Dict[str, Any]], int]:
         """
         Executa a busca pública (RFO04) e opcionalmente o filtro territorial (RFO05)
         diretamente no MongoDB.
@@ -168,6 +170,12 @@ class CatalogoMongoService:
             }
 
         col = self.mongo_db[self.COLECAO]
-        cursor = col.find(query).sort("preco_minimo", 1)
-        docs = await cursor.to_list(length=100)
-        return docs
+        total = await col.count_documents(query)
+        cursor = (
+            col.find(query)
+            .sort([("preco_minimo", 1), ("hotel_id", 1)])
+            .skip(offset)
+            .limit(limit)
+        )
+        docs = await cursor.to_list(length=limit)
+        return docs, total

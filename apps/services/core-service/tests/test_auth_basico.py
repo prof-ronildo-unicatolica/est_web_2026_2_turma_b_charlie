@@ -1,6 +1,18 @@
-from app.core.security import create_access_token
+from app.core.security import create_access_token, hash_password
+from app.repositories.usuario_repository import UsuarioRepository
 
 BASE = "/api/v1/auth"
+
+
+def _garantir_usuario(db_session, email, is_admin):
+    repo = UsuarioRepository(db_session)
+    if not repo.get_by_email(email):
+        repo.create(
+            nome="Admin Teste" if is_admin else "Cliente Teste",
+            email=email,
+            senha_hash=hash_password("senha-de-teste-123"),
+            is_admin=is_admin,
+        )
 
 
 def test_registro_usuario_valido(client, db_session):
@@ -28,12 +40,14 @@ def test_login_retorna_jwt_valido(client, db_session):
 
 
 def test_cliente_recebe_403_em_rota_admin(client, db_session):
+    _garantir_usuario(db_session, "cliente@hotel.com", is_admin=False)
     token_cliente = create_access_token(sub="cliente@hotel.com", is_admin=False)
     resp = client.get(f"{BASE}/admin/verificacao", headers={"Authorization": f"Bearer {token_cliente}"})
     assert resp.status_code == 403
 
 
 def test_admin_recebe_200_em_rota_admin(client, db_session):
+    _garantir_usuario(db_session, "admin@hotel.com", is_admin=True)
     token_admin = create_access_token(sub="admin@hotel.com", is_admin=True)
     resp = client.get(f"{BASE}/admin/verificacao", headers={"Authorization": f"Bearer {token_admin}"})
     assert resp.status_code == 200
