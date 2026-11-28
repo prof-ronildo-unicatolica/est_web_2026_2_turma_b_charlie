@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.admin_auditoria import router as admin_auditoria_router
 from app.api.v1.admin_cidades import router as admin_cidades_router
 from app.api.v1.admin_comodidades import router as admin_comodidades_router
 from app.api.v1.admin_hoteis import router as admin_hoteis_router
@@ -61,6 +62,7 @@ app.include_router(admin_cidades_router, prefix=settings.API_V1_STR)
 app.include_router(admin_hoteis_router, prefix=settings.API_V1_STR)
 app.include_router(admin_comodidades_router, prefix=settings.API_V1_STR)
 app.include_router(admin_quartos_router, prefix=settings.API_V1_STR)
+app.include_router(admin_auditoria_router, prefix=settings.API_V1_STR)
 app.include_router(cotacao_router, prefix=settings.API_V1_STR)
 app.include_router(reservas_router, prefix=settings.API_V1_STR)
 app.include_router(avaliacoes_router, prefix=settings.API_V1_STR)
